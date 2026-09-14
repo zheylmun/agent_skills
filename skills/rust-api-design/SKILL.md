@@ -14,6 +14,35 @@ Scope: everything here governs items that are `pub` and reachable from outside
 the crate. Private items are governed by
 [rust-principles](../rust-principles/SKILL.md) alone.
 
+### Library crates and binary crates are not the same surface
+
+The whole contract is scaled by **who can actually call the item**. In a
+library, "reachable from outside the crate" is the published surface and the
+contract applies in full. In a binary or an application crate — a CLI, a
+`leptos`/`xilem`/`vello` app, a firmware image — nothing outside the crate can
+call anything, so that set is effectively empty and the contract scales down
+to this:
+
+- **Type-driven design and error design apply unchanged.** Making a wrong call
+  unrepresentable is worth just as much to the one caller you do have, who is
+  you in six months, and `anyhow`/`eyre` is available here precisely because
+  there is no downstream matcher — see Error Design.
+- **The rustdoc contract does not apply to app-internal `pub` items.** A `pub
+  fn` component in an application binary is `pub` for module plumbing, not for
+  docs.rs; holding it to `# Arguments`, `# Errors`, and intra-doc links on
+  every type reference buys a reader who does not exist. `#![deny(missing_docs)]`
+  is not expected on an application crate, and `-D missing_docs` failing on one
+  is not a finding.
+- **Surface hygiene shrinks to the derives.** `#[derive(Debug)]` still pays for
+  itself — it is what logging and a debugger read. `#[non_exhaustive]` on a type
+  that only this crate can name buys nothing and is noise.
+- **The exception that puts the full contract back:** any crate in a workspace
+  that another crate depends on, and any module you expect to extract into one,
+  is a library for this skill's purposes no matter what its `[[bin]]` says.
+
+When a crate is both (`src/lib.rs` plus `src/main.rs`), the library half gets
+the full contract and the binary half gets the scaled-down one.
+
 ## Type-Driven Design
 
 ### Parse, don't validate
@@ -30,12 +59,16 @@ pub fn set_rate(hz: u32) -> Result<(), String> {
 }
 
 // After: the only way to hold a SampleRate is to have passed the check.
+/// A sample rate in hertz, proven to be within the device's legal range.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SampleRate(u32);
 
 impl SampleRate {
+    /// Builds a [`SampleRate`], rejecting a rate outside the legal range.
     pub fn new(hz: u32) -> Result<Self, RateError> { /* ... */ }
 }
 
+/// Sets the device's sample rate.
 pub fn set_rate(rate: SampleRate) { /* no check needed, ever */ }
 ```
 
@@ -64,11 +97,24 @@ pub fn schedule(sensor_id: u32, period_hz: u32, timeout_ms: u32) { /* ... */ }
 
 // After: the confusable pair (period_hz, timeout_ms) can no longer be
 // swapped. sensor_id stays a u32 — it is not confusable with anything here.
+/// A frequency in hertz.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Hertz(pub u32);
+
+/// A duration in whole milliseconds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Millis(pub u32);
 
+/// Schedules periodic sampling of one sensor.
 pub fn schedule(sensor_id: u32, period: Hertz, timeout: Millis) { /* ... */ }
 ```
+
+`Hertz` and `Millis` keep `pub` fields on purpose: the whole value *is* the
+number, there is no invariant to protect, and a caller who cannot get the
+`u32` back out has been given friction and nothing else. That is the one shape
+Surface Hygiene's "fields holding an invariant are never `pub`" does not
+reach. They are still `#[derive(Debug)]`'d and still documented, like every
+other public item.
 
 Note what was *not* wrapped. `sensor_id` keeps its primitive because no other
 `u32` in the signature can be mistaken for it; wrapping it would add call-site
@@ -86,10 +132,21 @@ type. It admits every illegal value and then rejects most of them at runtime.
 pub fn set_gain(gain: u8) -> Result<(), String> { /* matches!(gain, 1|2|4|8) */ }
 
 // After: 4 values, all legal, checked by the compiler.
+/// The analog gain settings the device supports.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
-pub enum Gain { X1, X2, X4, X8 }
+pub enum Gain {
+    /// Unity gain.
+    X1,
+    /// Two times gain.
+    X2,
+    /// Four times gain.
+    X4,
+    /// Eight times gain.
+    X8,
+}
 
+/// Sets the analog gain.
 pub fn set_gain(gain: Gain) { /* no error path at all */ }
 ```
 
@@ -111,15 +168,26 @@ impl Link {
 // After: there is no send() to call until open() has been called.
 use core::marker::PhantomData;
 
+/// Type state for a [`Link`] that has not been opened yet.
+#[derive(Debug, Clone, Copy)]
 pub struct Disconnected;
+
+/// Type state for a [`Link`] that has completed [`Link::open`].
+#[derive(Debug, Clone, Copy)]
 pub struct Connected;
+
+/// A link to the device, parameterised by its connection state.
+#[derive(Debug)]
 pub struct Link<S> { _state: PhantomData<S> }
 
 impl Link<Disconnected> {
+    /// Opens the link, yielding the only type that can [`Link::send`].
+    #[must_use]
     pub fn open(self) -> Link<Connected> { Link { _state: PhantomData } }
 }
 
 impl Link<Connected> {
+    /// Sends one byte over the open link.
     pub fn send(&self, byte: u8) { /* ... */ }
 }
 ```
@@ -140,8 +208,18 @@ pub struct I2cBus;
 impl Transport for I2cBus { /* ... */ }
 
 // After: the only thing that exists.
+/// The I2C bus this crate talks to the device over.
+#[derive(Debug)]
 pub struct I2cBus;
-impl I2cBus { pub fn send(&self, bytes: &[u8]) -> Result<(), IoError> { /* ... */ } }
+
+impl I2cBus {
+    /// Writes `bytes` to the bus.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IoError`] if the bus rejects or times out on the transfer.
+    pub fn send(&self, bytes: &[u8]) -> Result<(), IoError> { /* ... */ }
+}
 ```
 
 The trait is cheap to add when the second implementor arrives. Unpicking a
@@ -155,7 +233,7 @@ trait from a published surface is not.
 | `#[must_use]` | On any return whose being ignored is a bug — builders, constructors returning a proven type, pure computations | Silently dropping the result is the exact mistake the type was built to prevent |
 | Borrow, don't own | `&T` / `&str` / `&[T]` in arguments unless ownership is genuinely taken | Taking ownership to satisfy the borrow checker is a design failure pushed onto the caller |
 | Minimal `pub` | Default to private; promote only what the use case needs | Everything `pub` is a promise you have to keep. Fields holding an invariant are never `pub` |
-| `#[derive]` the obvious set | `Debug` always; `Clone`/`Copy`/`PartialEq`/`Eq` where semantically true | Their absence is a breaking omission callers cannot work around |
+| `#[derive]` the obvious set | `Debug` always; `Clone`/`Copy`/`PartialEq`/`Eq` where semantically true. On a `no_std` crate, `#[derive(Debug, defmt::Format)]` — see [rust-embedded](../rust-embedded/SKILL.md) | Their absence is a breaking omission callers cannot work around |
 
 ## Error Design
 
@@ -182,7 +260,9 @@ half the signature and the half callers hit on their worst day.
 
 ## The Rustdoc Contract
 
-For every `pub` item reachable from outside the crate:
+For every `pub` item reachable from outside the crate — in a library, or in
+the library half of a crate that is both; see the scope note in the Overview
+for how this scales down in a binary or application crate:
 
 1. **Every public item is documented.** The crate root (`//!`), every public
    module (`//!` or `///`), functions, types, variants, fields, associated
@@ -314,8 +394,8 @@ written exactly once, in the constant.
 Verify the contract holds — a doc that does not build is not a doc:
 
 ```bash
-cargo +1.96.1 test --doc
-RUSTDOCFLAGS="-D rustdoc::broken_intra_doc_links -D missing_docs" cargo +1.96.1 doc --no-deps
+cargo test --doc
+RUSTDOCFLAGS="-D rustdoc::broken_intra_doc_links -D missing_docs" cargo doc --no-deps
 ```
 
 ## Common Mistakes

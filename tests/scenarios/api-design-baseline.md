@@ -86,8 +86,8 @@
 
 Dispatched to a fresh `general-purpose` subagent (model: sonnet) with only the
 prompt above, nothing else. It chose to edit the fixture crate in place; the
-fixture was restored with `git checkout` immediately afterwards. Its diff,
-verbatim:
+fixture was restored with `git checkout` immediately afterwards. Its diff, abridged
+(disclosed excerpt, not a full transcript):
 
 ```diff
 @@ pub struct Sensor {
@@ -122,7 +122,7 @@ verbatim:
 +}
 ```
 
-Its closing note, verbatim:
+Its closing note, abridged (disclosed excerpt):
 
 > I implemented this in a straightforward idiomatic style (primitive types,
 > `String` errors, matching the existing code's conventions) rather than the
@@ -364,7 +364,7 @@ was the SKILL.md text then the scenario prompt.
 **Isolation confirmed: the subagent used 0 tools.** Nothing on disk entered its
 context.
 
-Its reply, verbatim (new surface only; it echoed the legacy functions unchanged):
+Its reply, abridged (new surface only; it echoed the legacy functions unchanged):
 
 ```rust
 //! A validated sample rate, in hertz, accepted by a sensor.

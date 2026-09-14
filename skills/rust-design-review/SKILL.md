@@ -31,14 +31,17 @@ crate's structural pressure already shows; reading code before you have it
 means you find what you happened to open first, which is how a review ends up
 file-ordered.
 
+The gate reports **observations**; this review produces **findings**. The two
+words are not interchangeable here — an observation becomes a finding only
+once this review has said what it costs a caller and what would retire it.
 Three things the gate hands you need explicit handling:
 
 - **Clusters.** Each cluster is the gate's *question* about a structural
-  cause. Answering it is pass 5 of this review.
-- **Vacuous passes.** The gate reports a `cargo +1.96.1 test` run with zero
-  tests, or a feature powerset with nothing to vary, as a finding rather than
-  as clean.
-  Carry it into your review as one: "this crate's public contract has never
+  cause. Answering it is pass 6 of this review.
+- **Vacuous passes.** The gate reports a `cargo test` run with zero tests, or
+  a feature powerset with nothing to vary, as an observation rather than as
+  clean.
+  Carry it into your review as a finding: "this crate's public contract has never
   been executed" is a design fact about the surface, not a clean line to pass
   over. It outranks the lint-level nits — it is never dropped to make room for
   a missing `#[must_use]` — but it does not outrank a structural finding, and
@@ -50,9 +53,43 @@ Three things the gate hands you need explicit handling:
   your review which pass is therefore unevidenced. Never present a partial
   gate's output as a complete review.
 
+## Scope: Whole Crate Or Just The Change
+
+Settle this before pass 1, because it decides what "every `pub` item" means.
+
+- **Whole-crate review** — asked for a review of a crate, a module, or an API,
+  or reviewing a crate for the first time. Every pass covers the full public
+  surface.
+- **Change-scoped review** — asked to review before merging a change: a PR, a
+  branch diff, a set of staged edits. Read the diff first
+  (`git diff <base>...HEAD`) and scope the **findings** to the surface the
+  change adds, moves, or alters, plus anything the change made newly reachable.
+
+In change-scoped mode the passes are run in full but the output is not a
+crate-wide audit:
+
+- A pre-existing problem the change does not touch is not a finding. This is
+  [rust-api-design](../rust-api-design/SKILL.md)'s "legacy code in the file is
+  not a standard to meet" read in the other direction: new surface meets the
+  contract, and old surface next to it is not the review's business today.
+- **Crate-wide gate evidence is noted once, in one sentence, and does not
+  become per-item findings.** A wholesale `-D missing_docs` failure on a crate
+  that never had a doc contract, a clippy cluster that predates the branch, a
+  powerset whose bounds the gate reported — each gets a single line saying it
+  is crate-wide and pre-existing, and the review moves on. The exception is a
+  crate-wide problem the change *extends*: twenty more undocumented `pub` items
+  are this change's finding, not the crate's history.
+- The gate still runs in full — a smaller run is a different gate, and its
+  crate-wide output is still the map. What narrows is what you report, not what
+  you run.
+
+A twenty-line PR that produces a full-crate audit is the behavior that makes
+people stop invoking this skill. Say which mode you are in, in the first line
+of the review.
+
 ## Review Order
 
-Work these five passes in order. The order is deliberate: each pass narrows
+Work these six passes in order. The order is deliberate: each pass narrows
 what the next one can still be surprised by, and the first pass is the one
 that most often produces the leading finding.
 
@@ -98,7 +135,47 @@ When the gate reported a wholesale `-D missing_docs` failure, this pass has
 exactly one finding — the crate has no doc contract — not one finding per
 item.
 
-### 4. Cognitive load
+### 4. Comments
+
+*Which comment is standing in for a design the code should have carried?*
+
+This pass is not optional and not a subsection of the next one. Principle 4 of
+[rust-principles](../rust-principles/SKILL.md) — an explanatory comment is a
+design smell — is the most distinctive opinion in this plugin and the one a
+review most easily skips, because a comment is cheap to read past and never
+shows up in gate output.
+
+Read every `//` comment in the surface under review, and every `///` on a
+**private** item (principle 4 governs those identically — a doc comment on
+something nothing outside the crate can reach is an ordinary comment in
+rustdoc syntax). For each, ask the pass's question: **if the design were
+right, would this sentence need to exist?** Three shapes are findings, and the
+comment is never the finding itself — the design fact it is covering for is:
+
+- **A comment naming an invariant the types do not enforce** — "callers must
+  call `open` first", "`gain` must be 1, 2, 4, or 8", "safe to call from an
+  ISR". Each names a caller obligation a typestate, an enum, or a `Mutex` would
+  have absorbed; the comment is the evidence that nobody did.
+- **A comment defending a shape** — "we take nine parameters here because…",
+  an `#[allow]` with a justification attached. The prose is load-bearing where
+  the structure should have been.
+- **A comment restating a fact a type or constant already holds** — a copy
+  waiting to drift, the same failure the rustdoc corollary in
+  [rust-api-design](../rust-api-design/SKILL.md) names.
+
+What is *not* a finding: rustdoc on public items (that is pass 3's contract,
+and a caller on docs.rs cannot see the body), a `// SAFETY:` block justifying
+`unsafe` (required by convention, and soundness is out of scope), and a link
+to an external reference a datasheet page or an RFC number the code cannot
+carry.
+
+If this pass finds a comment of the first two shapes, **it produces a finding
+and that finding is not dropped as a nit** — see the comment rule under
+`## Output` for how it ranks. If it finds none, say so in a clause: "no comment
+in the reviewed surface is standing in for a missing type" is a real result and
+the only way a reader can tell this pass ran.
+
+### 5. Cognitive load
 
 *What must a reader hold in their head? Which abstraction only moves
 complexity around?*
@@ -107,11 +184,11 @@ Take the crate as a whole. Count the concepts a caller must carry
 simultaneously to make one correct call. Look for an abstraction that made a
 call site shorter without making anything unrepresentable — by
 [rust-principles](../rust-principles/SKILL.md) that is relocation, not
-reduction. Explanatory comments are evidence here: a comment defending why the
-code is shaped as it is marks a place the design, not the prose, should have
-carried the meaning.
+reduction. The comments pass 4 surfaced are evidence here too: several of them
+clustered in one module is a load finding about that module, over and above
+each one's own design fact.
 
-### 5. Gate evidence
+### 6. Gate evidence
 
 *What one structural fact, if changed, makes this cluster and its siblings
 stop firing?*
@@ -161,6 +238,16 @@ Significance is not file position and not lint count. Rank by, in order:
    undocumented item is.
 3. How much thinking the caller is doing on the API's behalf right now.
 
+**Rank a comment finding by the design fact it stands in for, never by the
+comment.** A comment is not a caller-facing item, so ranking the *comment*
+sorts it last every time — which is how principle 4 would quietly vanish from
+every review. The finding is "nothing in the types enforces that `open` is
+called before `send`, and a comment is holding that contract"; rank *that* by
+the three criteria above, and it will usually land high, because an unenforced
+call order affects every caller and is breaking to retire later. If the design
+fact genuinely is minor, it ranks minor — the rule is that the comment's own
+unrankability never decides it.
+
 Each finding names three things, in this order:
 
 1. **The design fact** — stated in the crate's own vocabulary, without a lint
@@ -200,9 +287,11 @@ heading: each one is a paragraph a reader can follow without the source open.
 A short review of three real findings is worth more than a complete inventory
 of fifteen. Read that as a floor and a standard, never as a cap: it licenses
 you to drop the nits, not to drop a finding you owe. **A mandated carry-in is
-never dropped to keep the review short** — every one of the five passes is
-run, and every gate outcome lands somewhere (next paragraph). If honest work
-through the five passes yields seven findings, write seven. If the crate's
+never dropped to keep the review short** — every one of the six passes is run,
+every gate outcome lands somewhere (next paragraph), and a pass-4 comment
+standing in for a missing type is a mandated carry-in exactly as a vacuous
+gate outcome is. If honest work
+through the six passes yields seven findings, write seven. If the crate's
 design is sound, say so in a paragraph and stop.
 
 **All five of the gate's commands land somewhere in your review.** The gate
@@ -220,7 +309,7 @@ drift into them:
 | Out of scope | Belongs to |
 |---|---|
 | Correctness bugs | the built-in `/code-review` |
-| Formatting and style | `cargo +1.96.1 fmt`, already run by the gate |
+| Formatting and style | `cargo fmt`, already run by the gate |
 | Performance and allocation cost | **no owner in this plugin** — say so when you hand it off, rather than implying a skill will pick it up |
 | `unsafe` soundness | **no owner in this plugin** — same; and see the carve-out below, which takes precedence over the budget |
 
@@ -253,12 +342,15 @@ serious.
 |---|---|
 | "It compiles and clippy is nearly clean, so the design is fine." | Compiling is the floor, not a grade. Every finding in this review is about code that compiles — that is the premise, not a defense. |
 | "I'll go through the file top to bottom so I don't miss anything." | File order is the source's order, not the design's. It buries the most expensive finding under whatever happened to be declared first. Order by significance; see Output. |
-| "The gate found `too_many_arguments` and `fn_params_excessive_bools`, so those are two findings." | Those are one piece of evidence for one design fact, and the fact is the finding. Apply the `#[allow]` test in pass 5: a finding that a lint suppression would make untrue was never a design finding. |
+| "The gate found `too_many_arguments` and `fn_params_excessive_bools`, so those are two findings." | Those are one piece of evidence for one design fact, and the fact is the finding. Apply the `#[allow]` test in pass 6: a finding that a lint suppression would make untrue was never a design finding. |
 | "I listed the lints the gate reported, which is what it gave me." | The gate's report is evidence, deliberately stopping short of conclusions so this step can draw them. Restating it adds nothing and skips the only work this skill does. |
 | "I recommended extracting a `ReadOptions` struct." | That is a refactor, not a remedy, until you say what the caller stops having to think about. Name the relief or the recommendation is unjudgeable. |
-| "The gate said `cargo +1.96.1 test` exited 0, so testing is fine." | The gate reports a zero-test run as a finding, not as clean. Carry it in as one — it outranks the lint-level nits and is never dropped for them. |
+| "The gate said `cargo test` exited 0, so testing is fine." | The gate reports a zero-test run as an observation, not as clean. Carry it in as one — it outranks the lint-level nits and is never dropped for them. |
 | "An unexercised crate is the biggest problem here, so I led with it." | It outranks the nits, not the structure. By the three ranking criteria an unexercised suite costs a caller no ability to use the API and is not breaking to retire, so it belongs near the end of the review, not at the front. |
 | "I found a real bug while reading, so I led with it." | Correctness belongs to `/code-review`. Mention it in one line at the end; leading with it turns a design review into the bug hunt this skill exists not to be. |
 | "I put the bugs at the end, under their own heading, like the skill said." | The position was right and the budget was not. Out-of-scope material gets one short closing paragraph in total — a heading of its own is how it grows back into the review. |
 | "I'll note both the missing `#[must_use]` and the public fields." | Not at the same altitude. A `pub` field that makes an invariant unenforceable is a promise to every future caller; a missing `#[must_use]` is a one-line attribute. Ranking them side by side is how a review flattens into a list. |
+| "The comments were fine — they explained the tricky parts well." | Principle 4 says a comment explaining a tricky part is evidence the part should not have been tricky. Pass 4 asks what the comment is standing in for; a well-written comment carrying an invariant the types could hold is a clearer finding, not an excused one. |
+| "The only thing pass 4 found was a comment, and a comment is a nit, so I cut it for length." | The comment is not the finding — the unenforced invariant behind it is, and that ranks by its cost to callers like anything else. See the comment rule under Output. |
+| "The PR was twenty lines, so I audited the whole crate's public surface while I was in there." | Change-scoped mode exists for this. Scope the findings to the surface the change touches and note crate-wide gate evidence once, in a sentence. An unrequested full-crate audit is how this review stops getting invoked. |
 | "There were forty things wrong, so the review is forty items." | Forty symptoms are rarely forty designs. Group by cause until each remaining item is a distinct design fact, then order those by significance. |

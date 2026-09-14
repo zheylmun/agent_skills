@@ -38,9 +38,23 @@ with "the 'cargo' binary ... is not applicable to the 'stable-aarch64-apple-darw
 toolchain"). The attempted repair did not fix it, and a forced reinstall of
 `stable` was intentionally not attempted (slow, uncertain payoff).
 
-The `1.96.1` toolchain works and is what every `cargo` invocation in this
-project pins to, e.g. `cargo +1.96.1 clippy`, `cargo +1.96.1 fmt`,
+The `1.96.1` toolchain works, so commands run **by hand in this repo** may be
+pinned to it locally, e.g. `cargo +1.96.1 clippy`, `cargo +1.96.1 fmt`,
 `cargo +1.96.1 hack check`.
+
+That pin is a workaround for this machine only and is deliberately **not** in
+the skills. `rust-quality-gate` runs its suite unpinned so that a crate's own
+`rust-toolchain.toml` decides — a command-line `+version` overrides that file,
+and a bare-metal target's `rust-std` is installed per toolchain, so a pinned
+invocation fails with `can't find crate for \`core\`` on exactly the embedded
+crates the skills are meant to gate. A pinned skill would also fail for every
+colleague who installs this plugin.
+
+Every command in this repo also prints a
+`warning: failed to auto-clean cache data ... Permission denied` line from the
+shared `~/.cargo` registry cache before the crate's own output. That is a
+cache-directory permission issue on this machine, not a finding about any
+crate.
 
 ## Testing
 
