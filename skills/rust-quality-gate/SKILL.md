@@ -37,12 +37,17 @@ for a toolchain reason that has nothing to do with the crate, and that
 failure must not be mistaken for a finding. `cargo hack` is a separate
 binary (`cargo install cargo-hack`) — if it is missing, the fourth command
 fails to launch at all, which is itself something to report, not something
-to route around.
+to route around. On this machine, every command also prints a
+`warning: failed to auto-clean cache data ... Permission denied` line from
+the shared `~/.cargo` registry cache before the crate's own output — that
+is environment noise from a cache-directory permission issue, not a finding
+about the crate, and is never reported.
 
 The rustdoc invocation is what makes the link discipline in
-[rust-principles](../rust-principles/SKILL.md) and `rust-api-design`
-enforceable rather than aspirational: `-D missing_docs` fails the build on
-the first undocumented public item, crate root included.
+[rust-principles](../rust-principles/SKILL.md) and
+[rust-api-design](../rust-api-design/SKILL.md) enforceable rather than
+aspirational: `-D missing_docs` fails the build on the first undocumented
+public item, crate root included.
 
 **On a crate with no doc discipline yet, `-D missing_docs` will fail on
 almost every line the first time this suite runs.** That is not a reason to
@@ -86,7 +91,7 @@ warnings disappear and hides the finding that mattered.
 | Repeated `needless_pass_by_value` | Ownership taken where a borrow would do — usually traceable to one type whose call sites all copy this mistake |
 | `too_many_arguments` alongside `fn_params_excessive_bools` on the same function | A missing parameter struct, or a function doing two jobs that a single argument list is straining to cover |
 | Widespread `must_use_candidate` | The crate has never decided which return values are meaningful to ignore and which are not |
-| `missing_errors_doc` / `missing_panics_doc` across several functions | The error design was never written down — see the Error Design section of `rust-api-design` |
+| `missing_errors_doc` / `missing_panics_doc` across several functions | The error design was never written down — see the Error Design section of [rust-api-design](../rust-api-design/SKILL.md) |
 | `-D missing_docs` failing wholesale, not on isolated items | The crate has no doc discipline yet, not a handful of forgotten comments — this is the finding, not noise to filter |
 
 A cluster is not "N warnings of the same lint name" mechanically counted —
@@ -96,22 +101,49 @@ on every function in one module is one finding about that module.
 
 ## Reporting
 
-The report is the contract the design review consumes. For every cluster
-found, state:
+The report is the contract the design review consumes. State the outcome of
+**all five commands**, not only clippy's — silence about a command reads as
+"never run," so a command that passed is reported as clean explicitly, by
+name, not omitted because it has nothing bad to say:
+
+- **`cargo fmt --check`** — clean, or the files with formatting drift.
+  Drift is its own line; it is not a lint and does not belong folded into
+  the clippy clusters below.
+- **`cargo clippy ... -W clippy::pedantic`** — clean, or clusters (below).
+- **`cargo test`** — clean (tests ran and passed), the failing tests by
+  name, or — the vacuous case — that the command exited zero because the
+  crate has **no tests to run**. A test command that ran nothing has not
+  exercised anything; report that absence as a finding, not as "clean."
+- **`cargo hack check --feature-powerset --no-dev-deps`** — clean, the
+  feature combination that failed to compile and why, or — the vacuous
+  case — that the feature matrix has only one legal combination and so
+  never varied anything. A powerset that cannot fail is not testing
+  anything either; report that the same way.
+- **the rustdoc command** — clean, broken intra-doc links by location, or
+  the missing-docs cluster (see The Suite above).
+
+For clippy clusters and a wholesale `-D missing_docs` failure, state:
 
 1. **The lint names** in the cluster.
 2. **The count** — how many occurrences, and how many distinct functions or
    items.
 3. **The files** (and functions) it appears in.
 4. **The suspected structural cause, as a question about the design** — not
-   an answer, and never a fix. `read_sensor` taking nine parameters,
-   four of them bare `bool`, is reported as *"is `read_sensor` doing two
-   jobs — sampling and a retry/power-cycle policy — that a parameter struct
-   or a split function would separate?"*, not as "extract a `ReadOptions`
-   struct."
+   an answer, and never a fix. `read_sensor` taking nine parameters, four
+   of them bare `bool`, is reported as *"is `read_sensor` doing one job or
+   two — sampling the bus, and a retry/power-cycle policy — and is that why
+   its signature needs nine parameters to express both?"*, never as
+   "extract a `ReadOptions` struct" or any other named remedy: the question
+   must not smuggle its own answer.
 
-Never a list of individual warnings, and never a fix list — both are the
-review's job to weigh, not this gate's job to pre-empt.
+Never a flat list of unrelated individual warnings standing in for cluster
+analysis, and never a fix list for any command — both are the review's job
+to weigh, not this gate's job to pre-empt. This does not forbid a one-line
+finding: a single unrelated hit (one `must_use_candidate` with no siblings,
+one unformatted file) is reported as the one-sentence finding it is: see
+"a cluster is not N warnings mechanically counted" above. What is forbidden
+is presenting several warnings that share a cause as a warning-by-warning
+list instead of naming the cluster.
 
 If any suite command could not be run at all — `cargo-hack` not installed,
 every `+1.96.1` invocation failing because the toolchain isn't installed,
@@ -130,3 +162,4 @@ were the whole suite.
 | "The crate has no docs yet, I'll skip the rustdoc command." | That is precisely the finding `-D missing_docs` exists to catch. Run it, then report the wholesale failure as one cluster — see The Suite. |
 | "I fixed each `too_many_arguments` warning by adding an `#[allow]` with a comment explaining why." | An explanatory comment defending an `#[allow]` is the same design smell [rust-principles](../rust-principles/SKILL.md) names for any other comment: it is evidence the design, not the comment, needs to change. |
 | "`cargo fmt --check` failed, so I ran it without the toolchain pin to move on." | An unpinned command on this machine can fail because the default `stable` toolchain is broken, not because of anything in the crate. Use `+1.96.1` on every command in the suite; a failure that persists with the pin is a real finding. |
+| "`cargo test` exited 0, so that command is clean." | Exit 0 with zero tests run is not clean — the crate has never been exercised. Report "no tests exist" as its own finding, the same as a failing test would be. |
