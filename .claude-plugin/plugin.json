@@ -1,0 +1,12 @@
+{
+  "name": "rust-craft",
+  "description": "Rust API design, documentation discipline, and design review skills",
+  "version": "0.1.0",
+  "author": {
+    "name": "Zach Heylmun"
+  },
+  "homepage": "https://github.com/zheylmun/agent_skills",
+  "repository": "https://github.com/zheylmun/agent_skills",
+  "license": "MIT",
+  "keywords": ["rust", "api-design", "documentation", "code-review"]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "zheylmun-agent-skills",
+  "owner": {
+    "name": "Zach Heylmun"
+  },
+  "plugins": [
+    {
+      "name": "rust-craft",
+      "source": "./",
+      "description": "Rust API design, documentation discipline, and design review skills"
+    }
+  ]
+}
