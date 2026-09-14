@@ -39,8 +39,13 @@ Three things the gate hands you need explicit handling:
   tests, or a feature powerset with nothing to vary, as a finding rather than
   as clean.
   Carry it into your review as one: "this crate's public contract has never
-  been executed" is a design fact about the surface, and it usually outranks
-  anything clippy said.
+  been executed" is a design fact about the surface, not a clean line to pass
+  over. It outranks the lint-level nits — it is never dropped to make room for
+  a missing `#[must_use]` — but it does not outrank a structural finding, and
+  it is never the leading one. Rank it like anything else, by the three
+  criteria under `## Output`: an unexercised suite costs a caller no ability
+  to use the API and is not a breaking change to retire, so it lands low.
+  Carry it in, near the end.
 - **Missing tooling.** If the gate reported a command it could not run, say in
   your review which pass is therefore unevidenced. Never present a partial
   gate's output as a complete review.
@@ -116,7 +121,7 @@ design facts behind them, not in the order the gate printed them — and if two
 clusters turn out to share one cause, they are one finding.
 
 **A cluster is evidence, never a finding.** This is the line the whole skill
-rests on, so it has a test:
+rests on. A first, cheap screen:
 
 > Would this finding still be true if someone silenced the lint with
 > `#[allow]`?
@@ -131,6 +136,18 @@ is the finding, and it survives an `#[allow]` untouched.
 Consequently, **a lint name is never the subject of a sentence in your
 output.** Lint names may appear only as supporting evidence for a fact already
 stated in the crate's own vocabulary.
+
+**That screen catches the lint's *name*, not the lint's *content*, so it is
+not what does the real work here.** "`read_sensor` takes nine parameters, four
+of them booleans" names no lint and survives an `#[allow]` untouched, yet it
+is `too_many_arguments` in the crate's vocabulary — a paraphrase, not a
+finding. What actually enforces the distinction is the three-part finding
+shape under `## Output`: a paraphrase of a lint can state the fact, but it
+cannot say what the caller is thereby forced to think about, nor what change
+would relieve them of it, because the lint never knew. **If a candidate
+finding cannot fill in parts 2 and 3, it is a restatement of the gate's
+evidence regardless of the words it uses.** Use the `#[allow]` screen to throw
+out the obvious cases fast; use the three-part shape to decide.
 
 ## Output
 
@@ -180,8 +197,20 @@ Numbering the findings is fine — the number is the rank, and a heading per
 finding helps. What is not fine is a finding that has collapsed into its
 heading: each one is a paragraph a reader can follow without the source open.
 
-A short review of three real findings is worth more than a complete inventory.
-If the crate's design is sound, say so in a paragraph and stop.
+A short review of three real findings is worth more than a complete inventory
+of fifteen. Read that as a floor and a standard, never as a cap: it licenses
+you to drop the nits, not to drop a finding you owe. **A mandated carry-in is
+never dropped to keep the review short** — every one of the five passes is
+run, and every gate outcome lands somewhere (next paragraph). If honest work
+through the five passes yields seven findings, write seven. If the crate's
+design is sound, say so in a paragraph and stop.
+
+**All five of the gate's commands land somewhere in your review.** The gate
+reports an outcome for each one — `fmt`, clippy, tests, the feature powerset,
+rustdoc — and each outcome either becomes or informs a finding, is
+acknowledged in a clause as clean, or is declared unevidenced because the
+command could not run. Silence about a command reads as never run, in your
+review exactly as in the gate's report.
 
 ## Out Of Scope
 
@@ -191,9 +220,9 @@ drift into them:
 | Out of scope | Belongs to |
 |---|---|
 | Correctness bugs | the built-in `/code-review` |
-| Performance and allocation cost | not this skill |
-| `unsafe` review | not this skill |
 | Formatting and style | `cargo +1.96.1 fmt`, already run by the gate |
+| Performance and allocation cost | **no owner in this plugin** — say so when you hand it off, rather than implying a skill will pick it up |
+| `unsafe` soundness | **no owner in this plugin** — same; and see the carve-out below, which takes precedence over the budget |
 
 Drifting into a bug hunt is the most common way this review fails, because
 bugs are easier to find and feel more concrete than a design fact. A bug you
@@ -207,6 +236,17 @@ become the bug hunt it is defined against. If the out-of-scope material will
 not fit in that paragraph, the right move is to say so in one sentence and
 recommend `/code-review`, not to expand the budget.
 
+**One carve-out, and it overrides the budget: a soundness or security problem
+is stated plainly, in full, wherever it needs to be.** Unsound `unsafe`, a
+data race, a memory-safety hole, a leaked credential — these are not "out of
+scope" in the sense the budget is about. The budget exists to stop a design
+review turning into a bug hunt, not to compress a soundness finding into a
+subordinate clause. Say it clearly, say it early if it is that serious, and
+name that it is outside the review's remit — the reader needs the fact more
+than the review needs its shape. Nothing else in this section gets this
+exemption: an ordinary logic bug does not become soundness because it is
+serious.
+
 ## Common Mistakes
 
 | Rationalization | Correction |
@@ -216,7 +256,8 @@ recommend `/code-review`, not to expand the budget.
 | "The gate found `too_many_arguments` and `fn_params_excessive_bools`, so those are two findings." | Those are one piece of evidence for one design fact, and the fact is the finding. Apply the `#[allow]` test in pass 5: a finding that a lint suppression would make untrue was never a design finding. |
 | "I listed the lints the gate reported, which is what it gave me." | The gate's report is evidence, deliberately stopping short of conclusions so this step can draw them. Restating it adds nothing and skips the only work this skill does. |
 | "I recommended extracting a `ReadOptions` struct." | That is a refactor, not a remedy, until you say what the caller stops having to think about. Name the relief or the recommendation is unjudgeable. |
-| "The gate said `cargo +1.96.1 test` exited 0, so testing is fine." | The gate reports a zero-test run as a finding, not as clean. Carry it in as one: an unexercised public contract usually outranks anything clippy said. |
+| "The gate said `cargo +1.96.1 test` exited 0, so testing is fine." | The gate reports a zero-test run as a finding, not as clean. Carry it in as one — it outranks the lint-level nits and is never dropped for them. |
+| "An unexercised crate is the biggest problem here, so I led with it." | It outranks the nits, not the structure. By the three ranking criteria an unexercised suite costs a caller no ability to use the API and is not breaking to retire, so it belongs near the end of the review, not at the front. |
 | "I found a real bug while reading, so I led with it." | Correctness belongs to `/code-review`. Mention it in one line at the end; leading with it turns a design review into the bug hunt this skill exists not to be. |
 | "I put the bugs at the end, under their own heading, like the skill said." | The position was right and the budget was not. Out-of-scope material gets one short closing paragraph in total — a heading of its own is how it grows back into the review. |
 | "I'll note both the missing `#[must_use]` and the public fields." | Not at the same altitude. A `pub` field that makes an invariant unenforceable is a promise to every future caller; a missing `#[must_use]` is a one-line attribute. Ranking them side by side is how a review flattens into a list. |

@@ -116,9 +116,15 @@ name, not omitted because it has nothing bad to say:
   exercised anything; report that absence as a finding, not as "clean."
 - **`cargo hack check --feature-powerset --no-dev-deps`** — clean, the
   feature combination that failed to compile and why, or — the vacuous
-  case — that the feature matrix has only one legal combination and so
-  never varied anything. A powerset that cannot fail is not testing
-  anything either; report that the same way.
+  case — that nothing in the crate actually reads a feature, so no
+  combination could have compiled differently from any other. That covers
+  both a matrix with only one legal combination and a matrix with many
+  legal combinations where the source contains no `#[cfg(feature = "…")]`
+  or `cfg!(feature = "…")` at all: the combination count is not the test,
+  whether any of them could have differed is. Grep the source for a
+  feature `cfg` before reporting this command clean. A powerset that
+  cannot fail is not testing anything either; report that the same way,
+  naming the declared features that nothing reads.
 - **the rustdoc command** — clean, broken intra-doc links by location, or
   the missing-docs cluster (see The Suite above).
 
