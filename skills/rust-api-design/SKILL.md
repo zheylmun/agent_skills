@@ -57,6 +57,25 @@ the value happens to be a primitive. The test is the one from
 that is a pair, and the wrapper pays for itself. If you cannot name one, say so
 and use the primitive.
 
+```rust
+// Before: four u32s in a row. Nothing stops a caller passing them in the
+// wrong order, and the compiler agrees it is fine.
+pub fn schedule(sensor_id: u32, period_hz: u32, timeout_ms: u32) { /* ... */ }
+
+// After: the confusable pair (period_hz, timeout_ms) can no longer be
+// swapped. sensor_id stays a u32 — it is not confusable with anything here.
+pub struct Hertz(pub u32);
+pub struct Millis(pub u32);
+
+pub fn schedule(sensor_id: u32, period: Hertz, timeout: Millis) { /* ... */ }
+```
+
+Note what was *not* wrapped. `sensor_id` keeps its primitive because no other
+`u32` in the signature can be mistaken for it; wrapping it would add call-site
+friction and buy nothing. Applying the newtype to every parameter is the same
+failure as applying it to none — the rule is per-parameter, and the question is
+always "what is this confusable with, and where".
+
 ### An enumeration is an enum
 
 When the legal values are a fixed, named set, a numeric parameter is the wrong
@@ -165,12 +184,33 @@ half the signature and the half callers hit on their worst day.
 
 For every `pub` item reachable from outside the crate:
 
-1. **Every public item is documented.** Functions, types, variants, fields,
-   associated constants, trait methods. No exceptions, including re-exports.
+1. **Every public item is documented.** The crate root (`//!`), every public
+   module (`//!` or `///`), functions, types, variants, fields, associated
+   constants, trait methods. No exceptions, including re-exports. The crate
+   root and modules are the ones most often forgotten, and `-D missing_docs`
+   rejects the crate root first — a crate that documents every function and no
+   module still fails the command at the bottom of this section.
+
+   `//!` documents the thing it is *inside* and belongs at the very top of the
+   file, above every `use` and item. `///` documents the thing it is *above*.
+   Writing `//!` immediately before a struct is always a bug: it silently
+   becomes the crate's own description and leaves the struct undocumented.
+
+   ```rust
+   //! I2C sensor configuration and readout.   <- crate doc, top of lib.rs
+
+   /// A validated sample rate, in hertz.      <- item doc, above the item
+   pub struct SampleRateHz(u32);
+   ```
 2. **Terse — usually one sentence.** State the contract, not a narrative of the
    implementation. Longer only where usage is genuinely nuanced.
 3. **Every argument is documented**, in an `# Arguments` list, saying what the
-   argument means and what it must satisfy.
+   argument means and what it must satisfy. State the constraint by *linking to
+   the type that holds it*, never by respelling it — this bullet is the single
+   most common place the corollary in rule 4 gets violated, because "what it
+   must satisfy" reads like an invitation to retype the values. It is not.
+   Write ``* `code` - requested multiplier; must be one of [`Gain`]``, never
+   ``* `code` - requested multiplier; must be 1, 2, 4, or 8``.
 4. **Intra-doc links on every type reference.** Every time a doc comment names
    a type, variant, constant, method, or trait that rustdoc can resolve, write
    it as ``[`Thing`]``. This is the rule of the section: it makes docs
@@ -185,6 +225,14 @@ For every `pub` item reachable from outside the crate:
    [`SampleRateHz::MIN`]..=[`SampleRateHz::MAX`]``, not "between 1 and 1000".
    Grep your finished doc comments for the literal values; every occurrence
    outside the one definition is a copy waiting to drift.
+
+   **One carve-out: `#[error("…")]` Display strings.** A `thiserror` format
+   string is runtime output for a human reading a log, not rustdoc — intra-doc
+   links do not render there and must not be written there. Spelling the values
+   out in an error message is correct: `#[error("gain {requested} is not 1, 2,
+   4, or 8")]` stays as it is. The corollary governs `///` and `//!` only. When
+   you grep, exclude `#[error(...)]` lines; every *other* hit is a copy to
+   replace with a link.
 5. **`# Errors`** on every fallible function, naming the variants returned and
    the condition for each — linked.
 6. **Examples where usage is nuanced**, in an `# Examples` block. They compile

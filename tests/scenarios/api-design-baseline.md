@@ -153,7 +153,12 @@ Its closing note, verbatim:
 8. **Explicit rationalization from convention.** It named the better design,
    then declined it to match surrounding legacy code.
 
-## With skill (GREEN)
+## With skill (GREEN #1) — CONTAMINATED, DOES NOT COUNT
+
+> **Does not count as evidence.** This agent read repo files before answering,
+> including `tests/scenarios/api-design-baseline.md`, which by then contained the
+> full RED failure list. It was shown the answer it was being tested on.
+> Retained for the record only. The clean-room run below is the evidence.
 
 Dispatched to a fresh `general-purpose` subagent (model: sonnet) with the full
 text of `skills/rust-api-design/SKILL.md`, then the prompt above, and nothing
@@ -287,7 +292,13 @@ $ RUSTDOCFLAGS="-D rustdoc::broken_intra_doc_links" cargo +1.96.1 doc --no-deps
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.21s
 ```
 
-## REFACTOR: loophole and re-run
+## REFACTOR: loophole and re-run — CONTAMINATED, DOES NOT COUNT
+
+> **Does not count as evidence.** This agent read
+> `tests/scenarios/api-design-baseline.md` at 11,209 characters — the RED failure
+> list *and* GREEN #1's complete finished solution, including `SampleRateHz`, the
+> `Gain` enum, all three `thiserror` enums, and the finished doc comments.
+> Reproducing a design handed to it proves nothing. Retained for the record only.
 
 The GREEN output was correct on every RED failure but leaked on one rule it
 was not explicit enough about: the literal set `1, 2, 4, or 8` was restated in
@@ -312,10 +323,15 @@ convert to a link:
 /// The raw multiplier was not one of the values [`Gain`] represents.
 ```
 
-**Partial, not complete.** Five prose restatements of `1, 2, 4, or 8` survived
-the re-run. Recorded as a known limitation rather than papered over. The rule
-in `## The Rustdoc Contract` was subsequently sharpened into an explicit
-directive with a grep check; that wording has not itself been scenario-tested.
+**Net change: zero.** Counting every literal occurrence of `1, 2, 4, or 8`,
+GREEN #1 produced 6 and the re-run produced 5; excluding the `#[error(...)]`
+Display string (where prose is correct), GREEN #1 produced 5 prose
+restatements and the re-run produced 4. The re-run converted the `GainError`
+variant doc to a link and **introduced a new restatement** in
+`from_multiplier`'s `# Errors` block that GREEN #1 did not have. The corollary
+did not work. This is a negative result, and it was obtained with the RED
+failure list in the agent's context — the easier condition — which makes the
+failure stronger evidence, not weaker.
 
 Re-run verification (scratch copy; fixture restored):
 
@@ -337,3 +353,228 @@ The fixture was restored with `git checkout` after each run and is byte-identica
 to its committed state. Both GREEN runs also read repo files before answering,
 so neither is a fully clean-room result — see the report for the contamination
 assessment.
+
+## Clean-room GREEN #1 — THIS IS THE EVIDENCE
+
+Run under the standing isolation ruling: the subagent was forbidden from
+reading, writing, or touching any file; the fixture source was carried inline
+in the prompt; it was told to answer with code in its reply. Its entire context
+was the SKILL.md text then the scenario prompt.
+
+**Isolation confirmed: the subagent used 0 tools.** Nothing on disk entered its
+context.
+
+Its reply, verbatim (new surface only; it echoed the legacy functions unchanged):
+
+```rust
+//! A validated sample rate, in hertz, accepted by a sensor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SampleRateHz(u32);
+
+impl SampleRateHz {
+    /// The lowest sample rate a sensor accepts, in hertz.
+    pub const MIN: u32 = 1;
+    /// The highest sample rate a sensor accepts, in hertz.
+    pub const MAX: u32 = 1000;
+
+    /// Builds a [`SampleRateHz`] from a raw hertz value.
+    ///
+    /// # Arguments
+    ///
+    /// * `hz` - requested rate, within [`SampleRateHz::MIN`]..=[`SampleRateHz::MAX`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigureError::SampleRateOutOfRange`] when `hz` falls
+    /// outside [`SampleRateHz::MIN`]..=[`SampleRateHz::MAX`].
+    pub fn new(hz: u32) -> Result<Self, ConfigureError> { /* ... */ }
+
+    /// The rate in hertz.
+    #[must_use]
+    pub const fn hz(self) -> u32 { self.0 }
+}
+
+/// A sensor's amplifier gain multiplier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Gain { X1, X2, X4, X8 }   // each variant documented
+
+impl Gain {
+    /// Builds a [`Gain`] from a raw multiplier code.
+    ///
+    /// # Arguments
+    ///
+    /// * `code` - requested multiplier; must be 1, 2, 4, or 8.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigureError::InvalidGain`] when `code` is not one of the
+    /// values [`Gain`] represents.
+    pub fn new(code: u8) -> Result<Self, ConfigureError> { /* ... */ }
+}
+
+/// Why [`configure`] could not apply a sensor's settings.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum ConfigureError {
+    /// The requested sample rate fell outside [`SampleRateHz::MIN`]..=[`SampleRateHz::MAX`].
+    #[error("sample rate {requested} Hz is outside {min}..={max} Hz")]
+    SampleRateOutOfRange { requested: u32, min: u32, max: u32 },
+
+    /// The requested gain code was not a value [`Gain`] represents.
+    #[error("gain code {requested} is not 1, 2, 4, or 8")]
+    InvalidGain { requested: u8 },
+}
+```
+
+(`configure` itself: `pub fn configure(sensor: &mut Sensor, rate_hz: u32,
+gain_code: u8) -> Result<(), ConfigureError>`, parsing both before mutating,
+with `# Arguments`, `# Errors`, and a passing `# Examples` doctest.)
+
+### Verification
+
+```
+$ cargo +1.96.1 build
+   Compiling sensor_kit v0.1.0 (.../scratchpad/cleanroom_kit)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.59s
+
+$ cargo +1.96.1 test --doc
+test src/lib.rs - configure (line 131) ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+$ RUSTDOCFLAGS="-D rustdoc::broken_intra_doc_links" cargo +1.96.1 doc --no-deps
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.20s
+```
+
+### Restatement count
+
+```
+$ grep -c "1, 2, 4, or 8" src/lib.rs
+2
+$ grep -n "1, 2, 4, or 8" src/lib.rs | grep -c "#\[error"
+1
+$ grep -n "1, 2, 4, or 8" src/lib.rs | grep -E "///|//!"
+59:    /// * `code` - requested multiplier; must be 1, 2, 4, or 8.
+```
+
+**2 total, 1 in the `#[error(...)]` carve-out (correct), 1 prose restatement
+(violation).** Down from 5 prose restatements in the contaminated GREEN #1 to
+1 — the corollary substantially worked, but did not hold completely. The single
+survivor was in an `# Arguments` bullet, where rule 3's "what it must satisfy"
+pulls against rule 4's corollary.
+
+### A defect the clean-room run exposed in the skill itself
+
+The agent wrote `//!` directly above `pub struct SampleRateHz`, which makes the
+line the *crate's* description and leaves `SampleRateHz` undocumented:
+
+```
+$ RUSTDOCFLAGS="-D missing_docs" cargo +1.96.1 doc --no-deps
+error: missing documentation for a struct
+ --> src/lib.rs:3:1
+```
+
+This was caused by the rule-1 wording added in review, which introduced `//!`
+without saying where it goes. Fixed by adding the `//!` vs `///` placement
+paragraph and example to rule 1. **A rule that mentions a syntax without its
+placement is a rule that produces this bug** — caught only because the
+clean-room run was compiled rather than eyeballed.
+
+## Clean-room GREEN #2 — corollary held
+
+Same isolation. **0 tools used.** Skill text amended since clean-room #1 with
+(a) the `//!` vs `///` placement paragraph in rule 1, and (b) a directive in
+rule 3 that `# Arguments` states constraints by linking, never by respelling —
+because that bullet is where the sole surviving restatement lived.
+
+This run read the task differently and returned a `SensorConfig` from
+`configure` rather than mutating `Sensor` — a legitimate reading of
+"parse, don't validate" that the skill does not forbid. New surface:
+
+```rust
+/// A validated sensor sample rate, in hertz, guaranteed to fall within
+/// [`SampleRateHz::MIN`]..=[`SampleRateHz::MAX`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SampleRateHz(u32);
+
+impl Gain {
+    /// Builds a [`Gain`] from a raw multiplier code.
+    ///
+    /// # Arguments
+    ///
+    /// * `code` - requested multiplier; must be one of [`Gain`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigureError::InvalidGain`] when `code` is not a value
+    /// [`Gain`] represents.
+    pub fn new(code: u8) -> Result<Self, ConfigureError> { /* ... */ }
+}
+
+/// A validated sensor configuration: a sample rate and gain proven to be in
+/// range, ready to apply to a sensor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct SensorConfig {
+    sensor_id: u32,
+    sample_rate: SampleRateHz,
+    gain: Gain,
+}
+
+pub fn configure(
+    sensor_id: u32,
+    sample_rate_hz: u32,
+    gain_code: u8,
+) -> Result<SensorConfig, ConfigureError> { /* ... */ }
+```
+
+### Verification
+
+```
+$ cargo +1.96.1 build
+   Compiling sensor_kit v0.1.0 (.../scratchpad/cleanroom2_kit)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.78s
+
+$ cargo +1.96.1 test --doc
+test src/lib.rs - configure (line 217) ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+$ RUSTDOCFLAGS="-D rustdoc::broken_intra_doc_links" cargo +1.96.1 doc --no-deps
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.20s
+```
+
+### Restatement count — the corollary held
+
+```
+$ grep -c "1, 2, 4, or 8" src/lib.rs
+1
+$ grep -n "1, 2, 4, or 8" src/lib.rs | grep -c "#\[error"
+1
+$ grep -n "1, 2, 4, or 8" src/lib.rs | grep -E "///|//!" | wc -l
+0
+```
+
+**1 occurrence, and it is the `#[error(...)]` Display string — the carve-out,
+where prose is correct. 0 rustdoc restatements.** The `# Arguments` bullet that
+failed in clean-room #1 now reads ``must be one of [`Gain`]``.
+
+`//!` misuse: 0 — `SampleRateHz` is documented with `///` and the rule-1 defect
+from clean-room #1 did not recur.
+
+### Restatement trajectory
+
+| Run | Isolated | rustdoc restatements | Carve-out (correct) |
+|---|---|---|---|
+| GREEN #1 (contaminated) | no | 5 | 1 |
+| Re-run (contaminated) | no | 4 | 1 |
+| Clean-room #1 | yes (0 tools) | 1 | 1 |
+| Clean-room #2 | yes (0 tools) | **0** | 1 |
+
+### Residual
+
+`-D missing_docs` still reports the crate root and the five original `Sensor`
+fields. All are pre-existing legacy items the agent was right not to touch;
+every item it added is documented. The crate root is the one arguable miss —
+rule 1 names it, and a fresh agent adding to an existing `lib.rs` still did not
+add a `//!`. Noted, not fixed: adding it would mean editing legacy, which the
+skill tells the agent not to do.
