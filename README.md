@@ -52,13 +52,17 @@ tests) used as a fixture for `rust-quality-gate` and `rust-design-review`.
 `tests/scenarios/*.md` are RED/GREEN prompts: each one is a task handed to a
 fresh agent first with no skill loaded (RED, showing the failure a skill is
 meant to catch) and then with the relevant `SKILL.md` loaded ahead of the
-same prompt (GREEN). The scenario files record the prompt only, not the
-transcript — this repo's convention settled on that as the skills matured,
-so a scenario file stays a stable regression fixture instead of a snapshot of
-one run. To re-run one: dispatch a clean-room agent (no repo access, code
-carried inline in the prompt) with just the prompt for RED, or the target
-`SKILL.md`'s text followed by the prompt for GREEN, and compare the output
-against the skill's stated deltas.
+same prompt (GREEN). Files differ on whether they also carry the transcript:
+`principles-baseline.md`, `api-design-baseline.md`, and `end-to-end.md`
+record the full run; `quality-gate-baseline.md`, `design-review-baseline.md`,
+and `embedded-baseline.md` record the prompt only, with the transcript kept
+in that task's report instead. The newer, prompt-only style is the intended
+convention going forward — it keeps a scenario file a stable regression
+fixture rather than a snapshot of one run — but the existing full-transcript
+files were left as they are rather than rewritten. To re-run one: dispatch a
+clean-room agent (no repo access, code carried inline in the prompt) with
+just the prompt for RED, or the target `SKILL.md`'s text followed by the
+prompt for GREEN, and compare the output against the skill's stated deltas.
 
 ## Spec
 

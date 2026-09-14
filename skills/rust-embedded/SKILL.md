@@ -41,12 +41,13 @@ only the deltas `#![no_std]` and embedded targets add on top.
   `pub fn new(hz: u32) -> Result<Self, RateError>` and the caller handles it.
 
 - **Interrupt-safety expressed in the type signature.** Whether a type may be
-  touched from an interrupt context is a fact about its API, not a comment
+  shared with an interrupt handler is a fact about its API, not a comment
   near its definition.
-  Before: `// safe to call from an ISR` above a plain `fn read(&self)`. After:
-  a type that only interrupt-safe code can construct or call, e.g. gated
-  behind a `Mutex<RefCell<_>>` / critical-section wrapper the ISR path is
-  required to go through.
+  Before: `// safe to call from an ISR` above a plain `static mut DEVICE:
+  Option<Device>`. After: `static DEVICE: critical_section::Mutex<RefCell<
+  Option<Device>>>` — the type itself requires every access, main-line or
+  ISR, to go through a critical section, so the safety claim is enforced by
+  the compiler instead of asserted in prose.
 
 - **`std` behind a feature gate, with the matrix actually checked.** A crate
   that supports both hosted and bare-metal builds is only proven to support
@@ -59,13 +60,16 @@ only the deltas `#![no_std]` and embedded targets add on top.
 ## Gate Changes
 
 Run [rust-quality-gate](../rust-quality-gate/SKILL.md) as written, with one
-addition: `cargo hack`'s feature powerset matters more here, because the
+change: `cargo hack`'s feature powerset matters more here, because the
 `std` gate is a real compile-time fork, not a vacuous feature nothing reads.
-Add the embedded target so the powerset is checked the way the crate is
-actually shipped, not just on the host:
+Replace the gate's fourth command with the same check built for the actual
+target, not the host — substitute the crate's real target triple for
+`<target>` below (e.g. `thumbv7em-none-eabihf` for a Cortex-M4/M7,
+`riscv32imc-unknown-none-elf` for a RISC-V part; never leave the placeholder
+literal):
 
 ```sh
-cargo +1.96.1 hack check --feature-powerset --no-dev-deps --target thumbv7em-none-eabihf
+cargo +1.96.1 hack check --feature-powerset --no-dev-deps --target <target>
 ```
 
 A powerset that only ever compiles for the host has not tested the
@@ -76,5 +80,5 @@ A powerset that only ever compiles for the host has not tested the
 | Rationalization | Correction |
 |---|---|
 | "I need a slice of unknown length, so I'll pull in `alloc` for a `Vec`." | Have the caller supply the buffer instead — `&mut [T]` or `[T; N]` — and return a slice or count. `alloc` is a last resort, not a default. |
-| "This `unwrap` can't actually fail." | If it truly cannot fail, the fallible path costs nothing to keep and proves the claim to every future caller; if it can fail, a `no_std` library has no backtrace to hand the caller when it does. Return `Result` and let the caller decide. |
+| "This `unwrap` can't actually fail." | `unwrap` is wrong either way, but the fix depends on which is true. If it can fail, model the failure — return `Result` and let the caller decide, since a `no_std` library has no backtrace to hand them when it does. If it truly cannot fail, a `Result` no caller can ever get an `Err` out of is not the fix: per [rust-api-design](../rust-api-design/SKILL.md), "the best error handling is an error that cannot occur." Say the guarantee in the type instead — a narrower argument type, a constructor that cannot be called with a bad value, or an infallible signature — not an invented variant nobody can handle. |
 | "`core::fmt` is fine, it's just for a debug print." | It is fine on the host; on the target it is the formatting machinery and its code size, paid on every build whether the print fires or not. Use `defmt` for on-device diagnostics. |
