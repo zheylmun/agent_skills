@@ -9,7 +9,7 @@ This is an overlay, used alongside
 [rust-api-design](../rust-api-design/SKILL.md) and
 [rust-design-review](../rust-design-review/SKILL.md), never instead of them.
 Type-driven design, surface hygiene, error design, the rustdoc contract, and
-the design review's five passes all still apply in full — everything here is
+the design review's six passes all still apply in full — everything here is
 only the deltas `#![no_std]` and embedded targets add on top.
 
 ## The Deltas

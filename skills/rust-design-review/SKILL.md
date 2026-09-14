@@ -52,6 +52,10 @@ Three things the gate hands you need explicit handling:
 - **Missing tooling.** If the gate reported a command it could not run, say in
   your review which pass is therefore unevidenced. Never present a partial
   gate's output as a complete review.
+- **Not applicable.** A command the gate reported as not applicable to this
+  crate or target is not a finding against the crate, and it is never carried
+  in as the vacuous-test finding. The pass it would have evidenced is declared
+  unevidenced, the same way missing tooling is handled.
 
 ## Scope: Whole Crate Or Just The Change
 

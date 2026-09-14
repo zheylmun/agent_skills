@@ -14,7 +14,7 @@ discipline, and documentation rather than low-level mechanics.
   surface.
 - **rust-quality-gate** — runs `fmt`, `clippy`, tests, `cargo-hack`, and a
   docs lint as evidence for a design review, and reports clusters of pedantic
-  clippy hits as structural findings rather than a task list.
+  clippy hits as structural observations rather than a task list.
 - **rust-design-review** — a design review (not a bug hunt) covering public
   surface, error design, docs, and cognitive load, using `rust-quality-gate`
   output as evidence.
