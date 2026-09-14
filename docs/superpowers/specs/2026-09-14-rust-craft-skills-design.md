@@ -29,6 +29,8 @@ them.
 5. **Ergonomic and hard to misuse, held in tension.** Rust is valuable because
    it can express both. Newtypes add friction at the call site and buy
    correctness. The tension is judged per API, never resolved by blanket rule.
+   The newtype is a perfect example. They're useful for making things hard to
+   misuse, but they can be a serious ergonomic papercut.
 
 Principle 4 governs inline `//` comments. It does not govern rustdoc: a caller
 reading docs.rs cannot see the implementation, so the public doc contract is
