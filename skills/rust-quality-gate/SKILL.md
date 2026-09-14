@@ -224,7 +224,13 @@ Per command, in the *ran* state:
 
 - **`cargo fmt --check`** — clean, or the files with formatting drift.
   Drift is its own line; it is not a lint and does not belong folded into
-  the clippy clusters below.
+  the clippy clusters below. Before reporting it at all, check when the
+  crate was last touched (`git log -1 --format=%ad`). `rustfmt`'s default
+  style changes between releases, so a crate untouched for a year or more
+  will show drift that is toolchain churn, not anything its author did.
+  Report that as what it is — "formats clean against the rustfmt it was
+  written under; N files differ under the current one" — and never as a
+  finding about the code.
 - **`cargo clippy ... -W clippy::pedantic`** — clean, the clusters (below),
   or — the common case on a mature crate — a handful of isolated hits that
   share no cause, reported as the one-sentence observations they are rather
@@ -266,7 +272,31 @@ For clippy clusters and a wholesale `-D missing_docs` failure, state:
 
 1. **The lint names** in the cluster.
 2. **The count** — how many occurrences, and how many distinct functions or
-   items.
+   items. **Never count by reading the human-readable output.** `--all-targets`
+   compiles the library and the test target separately, so every warning in
+   library code is emitted twice, and a crate with benches or examples emits
+   it more. Counting the printed warnings reports a number that can be double
+   the truth or worse, and hands the review an inflated figure as fact. Count
+   distinct `(file, line, lint)` triples instead:
+
+   ```sh
+   cargo clippy --all-targets --all-features --message-format=json -- -W clippy::pedantic 2>/dev/null \
+     | python3 -c 'import sys,json,collections
+   c=collections.Counter()
+   for l in sys.stdin:
+       try: m=json.loads(l)
+       except ValueError: continue
+       if m.get("reason")!="compiler-message": continue
+       d=m["message"]; code=(d.get("code") or {}).get("code","")
+       if not code.startswith("clippy::"): continue
+       for s in d.get("spans",[]):
+           if s.get("is_primary"): c[(code,s["file_name"],s["line_start"])]=1
+   n=collections.Counter(k[0] for k in c)
+   for lint,k in n.most_common(): print(k,lint)'
+   ```
+
+   If you report a count you did not derive this way, say so and say it is
+   unverified.
 3. **The files** (and functions) it appears in.
 4. **The suspected structural cause, as a question about the design** — not
    an answer, and never a fix. `read_sensor` taking nine parameters, four
