@@ -20,16 +20,47 @@ pub fn read_sensor(
     log_errors: bool,
     timeout_ms: u32,
 ) -> Result<f32, String> {
-    if !retry && timeout_ms == 0 {
+    if timeout_ms == 0 {
         return Err("bad timeout".to_string());
     }
-    if power_cycle && verbose {
-        return Err("power cycle required".to_string());
+
+    if power_cycle {
+        // Pulse the reset line before sampling; the sensor needs a moment
+        // to come back up after a power cycle.
+        reset_bus(address);
     }
-    if log_errors && timeout_ms == 0 {
-        return Err("timeout with logging enabled".to_string());
+
+    let mut attempts_left = if retry { 3 } else { 1 };
+    loop {
+        match sample_raw(address) {
+            Ok(raw) => {
+                let value = (f32::from(raw) * scale) + offset + id as f32;
+                if verbose {
+                    println!("sensor {id} @ 0x{address:02x} -> {value}");
+                }
+                return Ok(value);
+            }
+            Err(err) => {
+                attempts_left -= 1;
+                if attempts_left == 0 {
+                    if log_errors {
+                        eprintln!("read_sensor giving up on sensor {id}: {err}");
+                    }
+                    return Err(err);
+                }
+            }
+        }
     }
-    Ok((f32::from(address) * scale) + offset + id as f32)
+}
+
+fn reset_bus(_address: u8) {}
+
+fn sample_raw(address: u8) -> Result<u8, String> {
+    if address == 0 {
+        // 0x00 is the I2C general call address; no sensor answers on it.
+        return Err("no device at address 0x00".to_string());
+    }
+    Ok(address)
 }
 
 pub fn connect(s: Sensor) -> Result<Sensor, Box<dyn std::error::Error>> {
