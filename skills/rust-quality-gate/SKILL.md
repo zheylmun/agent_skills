@@ -224,13 +224,23 @@ Per command, in the *ran* state:
 
 - **`cargo fmt --check`** — clean, or the files with formatting drift.
   Drift is its own line; it is not a lint and does not belong folded into
-  the clippy clusters below. Before reporting it at all, check when the
-  crate was last touched (`git log -1 --format=%ad`). `rustfmt`'s default
-  style changes between releases, so a crate untouched for a year or more
-  will show drift that is toolchain churn, not anything its author did.
-  Report that as what it is — "formats clean against the rustfmt it was
-  written under; N files differ under the current one" — and never as a
-  finding about the code.
+  the clippy clusters below. Always report it — "run `cargo fmt`" is
+  useful on its own, and it is the one thing in this whole suite that is
+  fixed by a single command with nothing to decide. It is also the thing
+  a reader is most likely to have simply not run yet.
+
+  Attribute it correctly, though. Check when the crate was last touched
+  (`git log -1 --format=%ad`). `rustfmt`'s default style changes between
+  releases, so a crate untouched for a year or more shows drift its
+  author never introduced. Say which it is: "N files need `cargo fmt`
+  — the crate predates the current rustfmt, so this is toolchain churn,
+  not drift you left behind" reads very differently from the same
+  sentence about a crate committed last week, and only the second says
+  anything about how the code is being maintained.
+
+  Either way the fix is the same and belongs in CI, where drift never
+  accumulates far enough to need attributing. If `cargo fmt --check`
+  isn't in the crate's CI, that absence is worth one clause.
 - **`cargo clippy ... -W clippy::pedantic`** — clean, the clusters (below),
   or — the common case on a mature crate — a handful of isolated hits that
   share no cause, reported as the one-sentence observations they are rather
