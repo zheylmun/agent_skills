@@ -119,12 +119,19 @@ name, not omitted because it has nothing bad to say:
   case — that nothing in the crate actually reads a feature, so no
   combination could have compiled differently from any other. That covers
   both a matrix with only one legal combination and a matrix with many
-  legal combinations where the source contains no `#[cfg(feature = "…")]`
-  or `cfg!(feature = "…")` at all: the combination count is not the test,
-  whether any of them could have differed is. Grep the source for a
-  feature `cfg` before reporting this command clean. A powerset that
-  cannot fail is not testing anything either; report that the same way,
-  naming the declared features that nothing reads.
+  legal combinations where nothing reads the feature at all: the
+  combination count is not the test, whether any of them could have
+  differed is. Before reporting this command clean, grep the source for
+  `feature` inside any `cfg`/`cfg_attr` form — not just the two literal
+  shapes `#[cfg(feature = "…")]` and `cfg!(feature = "…")`, which miss
+  `#[cfg(not(feature = "…"))]`, `#[cfg(all(…))]`, `#[cfg(any(…))]`, and
+  `#[cfg_attr(feature = "…", …)]` — and check `Cargo.toml` for an
+  `optional = true` dependency or a `dep:name` feature, either of which
+  makes a feature read even when it never appears in a source `cfg`. A
+  feature that only toggles an optional dependency is still a feature the
+  powerset is testing. A powerset that cannot fail is not testing anything
+  either; report that the same way, naming the declared features that
+  nothing reads.
 - **the rustdoc command** — clean, broken intra-doc links by location, or
   the missing-docs cluster (see The Suite above).
 

@@ -32,9 +32,12 @@ them.
    The newtype is a perfect example. They're useful for making things hard to
    misuse, but they can be a serious ergonomic papercut.
 
-Principle 4 governs inline `//` comments. It does not govern rustdoc: a caller
-reading docs.rs cannot see the implementation, so the public doc contract is
-information the types do not carry, not an apology for a bad design.
+Principle 4 governs inline `//` comments, and governs `///` on private items
+exactly the same way — a doc comment on an item nothing outside the crate can
+reach is an ordinary comment wearing rustdoc syntax. It does not govern
+rustdoc on **public** items: a caller reading docs.rs cannot see the
+implementation, so the public doc contract is information the types do not
+carry, not an apology for a bad design.
 
 ## Repository
 

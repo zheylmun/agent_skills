@@ -42,6 +42,24 @@ The `1.96.1` toolchain works and is what every `cargo` invocation in this
 project pins to, e.g. `cargo +1.96.1 clippy`, `cargo +1.96.1 fmt`,
 `cargo +1.96.1 hack check`.
 
+## Testing
+
+`tests/fixtures/sensor_kit` is a small crate with deliberately seeded design
+flaws (a nine-parameter function, four of them bools, a `pub` field beside a
+validating constructor, `Box<dyn Error>`, undocumented public items, no
+tests) used as a fixture for `rust-quality-gate` and `rust-design-review`.
+
+`tests/scenarios/*.md` are RED/GREEN prompts: each one is a task handed to a
+fresh agent first with no skill loaded (RED, showing the failure a skill is
+meant to catch) and then with the relevant `SKILL.md` loaded ahead of the
+same prompt (GREEN). The scenario files record the prompt only, not the
+transcript — this repo's convention settled on that as the skills matured,
+so a scenario file stays a stable regression fixture instead of a snapshot of
+one run. To re-run one: dispatch a clean-room agent (no repo access, code
+carried inline in the prompt) with just the prompt for RED, or the target
+`SKILL.md`'s text followed by the prompt for GREEN, and compare the output
+against the skill's stated deltas.
+
 ## Spec
 
 See
