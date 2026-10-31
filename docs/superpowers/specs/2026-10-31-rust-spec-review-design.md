@@ -214,14 +214,28 @@ to sort:
    name". A newtype costs a conversion at every call site; a typestate costs
    a generic parameter in every signature; an enum over two `Option`s costs
    nothing. The reviewer states which, concretely. "Might be over-engineering"
-   is not a cost; `rust-principles` already forbids that answer.
+   is not a cost; `rust-principles` already forbids that answer. A cost
+   counts only when it lands on a caller at the described surface: a
+   conversion at a call site, a generic parameter in a signature they write,
+   a type they must learn. A cost internal to the implementing crate ("one
+   place in the library", "the loader has to decide") is "none I can name".
 
 Each finding also carries the section of the spec it is about, so the
 orchestrator can edit the right place.
 
+**The structural bar.** A finding's subject is a shape the spec names or a
+sentence the spec states, and its remedy either changes a named shape in a
+way that would be a breaking change to retire once code exists, or adds or
+removes an obligation on a caller of the described surface. Anything below
+that bar is not a finding for this skill: a detail the spec does not fix, a
+requirement or completeness gap, a naming or documentation point, a shape
+the reviewer would have to invent first. Those go in the round's closing
+paragraph. The bar is what lets the loop converge: a fresh reviewer always
+finds something, and only structural findings are worth a round.
+
 A round's output is the ranked findings as prose, a clause for any pass that
-found nothing, and a one-line closing paragraph for anything out of scope,
-on `rust-design-review`'s budget. A round that finds nothing says so in a
+found nothing, and a one-line closing paragraph for anything out of scope
+or below the structural bar, on `rust-design-review`'s budget. A round that finds nothing says so in a
 paragraph.
 
 ## 6. The loop
@@ -237,13 +251,16 @@ Between rounds the orchestrator sorts every finding into one bin:
 
 | Bin | Rule | Effect on the spec | Reaches the user |
 |---|---|---|---|
-| **Adopted** | The reviewer named no ergonomic cost, and no recorded decision covers it | The shape is rewritten in place; a one-line entry in the decisions section | No, beyond the diff |
-| **Adopted with a cost** | The reviewer named a real cost | The shape is rewritten in place, provisionally; the decisions section records both the cost and the obligation it retires | Yes, with both sides, so the user can flip it |
+| **Adopted** | The reviewer named no ergonomic cost at the caller's surface (a cost internal to the implementing crate counts as none), and no recorded decision covers it | The shape is rewritten in place; a one-line entry in the decisions section | No, beyond the diff |
+| **Adopted with a cost** | The reviewer named a real cost, one that lands on a caller at the described surface | The shape is rewritten in place, provisionally; the decisions section records both the cost and the obligation it retires | Yes, with both sides, so the user can flip it |
 | **Declined** | The remedy needs product knowledge the spec does not give, contradicts a recorded decision without breaking a goal, or is about something the spec left to the builder | Nothing changes in the body; the decisions section records the finding and why it was declined | Yes, so the user can overrule |
 
 The orchestrator never invents a fourth bin and never leaves a finding
 unsorted. A finding it cannot sort is declined with "could not sort" as the
-reason, which puts it in front of the user.
+reason, which puts it in front of the user. A finding below the structural
+bar in section 5 is not sorted: it is an aside, and joins the round's
+closing paragraph. Calibrating the cost by section 5's rule is what keeps
+the keep-or-flip list to genuine trade-offs.
 
 **Editing the spec.** Adopted changes are made in the spec's own voice and
 at the spec's own altitude. The orchestrator changes the shape the finding
@@ -258,16 +275,17 @@ decisions` if absent, before "Left to the builder" and "Open with the user"
 when those exist. One entry per decision, each stating the finding in one
 sentence, the bin, the reason, and the round. Example:
 
-> - **Adopted (round 1).** The device file's record is an enum of pending or
->   enrolled, never two optional tables. Retires the "prefers device when
->   both present" rule.
-> - **Adopted with a cost (round 2).** `PendingId` and `DeviceId` are
->   newtypes. Cost: every caller that forwards an id converts at the
->   boundary. Retires: a pending id passed where a device id was meant, which
->   the signed request would otherwise send.
-> - **Declined (round 2).** Typestate over `Client` for enrol, finalize,
->   products. The three calls are made from different owners at different
->   times and the spec does not say the pending key is held by one value;
+> - **Adopted (round 1).** A job's retry policy is an enum of never, a fixed
+>   count, or until a deadline, never a count where zero means forever.
+>   Retires: the "a retry count of 0 retries without limit" rule.
+> - **Adopted with a cost (round 2).** `Queue::push` takes a `Priority`
+>   parsed once from the 1-to-9 range, not a `u8`. Cost: every caller that
+>   forwards a priority from its own config converts at the boundary.
+>   Retires: a priority of 0 or 12 reaching the scheduler, which would
+>   otherwise clamp it silently.
+> - **Declined (round 2).** `pop` returns a `Lease` that acknowledges the job
+>   when dropped. Reason: the spec has a separate process acknowledge a job
+>   after it reports, so no one value holds a job from pop to acknowledge;
 >   needs the user.
 
 **Convergence.** The loop stops when a round's findings are all covered by
@@ -290,6 +308,10 @@ One message, after convergence or the cap. In order:
    cost, and what it retires, with the question "keep or flip" implied.
 3. The **declined** items, same order, each with the reason.
 4. One line pointing at the spec diff for the adopted bin.
+5. Optionally, one sentence collecting the rounds' out-of-scope asides (a
+   bug noticed in the spec's logic, a requirement gap, a below-bar point),
+   on the budget `rust-design-review` gives its closing paragraph. Present
+   only when a round produced asides.
 
 Nothing else. No per-round narrative, no restatement of the spec.
 

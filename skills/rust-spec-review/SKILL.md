@@ -121,7 +121,9 @@ failures a better argument type deletes. Then ask whether the spec has
 collapsed an error into an absence ("a corrupt item is treated as no key"),
 which hands the caller a recovery it never chose and hides the failure from
 everything above it, or a success into an error code the caller must
-string-match.
+string-match. A failure the spec never mentions, or a finer split of one it
+does, is a completeness point for the closing paragraph, not a new variant
+to propose.
 
 ### 4. Boundaries
 
@@ -133,8 +135,9 @@ spec names, and is it owned in one place? Which sentences describe a lock
 discipline ("the mutex is never held across a network call") or a write
 discipline ("every write re-checks the record still names the id") that
 structure could carry instead? Which persisted or wire shape admits values the
-in-memory type refuses, so that a load path needs a validation the spec
-forgot to describe?
+in-memory type refuses? That mismatch between two named shapes is the
+finding; a load path, a lock, or a flow the spec does not describe at all is
+a completeness point for the closing paragraph.
 
 ### 5. Prose rules
 
@@ -264,7 +267,21 @@ Each finding names four things, in this order:
    signature that holds it; an enum over two `Option`s costs nothing. "Might
    be over-engineering" is not a cost, and principle 5 of
    [rust-principles](../rust-principles/SKILL.md) already forbids it as an
-   answer. A finding whose fourth part is blank is not finished.
+   answer. A finding whose fourth part is blank is not finished. A cost
+   counts only when it lands on a caller at the described surface: a
+   conversion at a call site, a generic parameter in a signature they write,
+   a type they must learn. A cost internal to the implementing crate ("one
+   place in the library", "the loader has to decide") is "none I can name".
+
+**The structural bar.** A finding's subject is a shape the spec names or a
+sentence the spec states, and its remedy either changes a named shape in a
+way that would be a breaking change to retire once code exists, or adds or
+removes an obligation on a caller of the described surface. Anything below
+that bar is not a finding for this skill: a detail the spec does not fix, a
+requirement or completeness gap, a naming or documentation point, a shape
+you would have to invent first. Those go in the round's one closing
+paragraph. A fresh reviewer always finds something; the bar is what makes
+what it finds worth a round.
 
 Each finding also names the section of the spec it is about, by heading, so
 whoever edits the spec can find the place, and the one pass it belongs to,
@@ -295,7 +312,7 @@ straight to the user, is:
   without the spec open, with its pass and its spec section named;
 - a clause for every pass that found nothing, and pass 6's clause naming the
   decisions it read;
-- one short closing paragraph for anything out of scope;
+- one short closing paragraph for anything out of scope or below the bar;
 - and, when no pass finds anything, a paragraph saying the design is sound
   and why, instead of the findings.
 
@@ -332,15 +349,21 @@ reviewer reads it as the author would have written it.
 
 | Bin | Rule | Effect on the spec | Reaches the user |
 |---|---|---|---|
-| **Adopted** | The reviewer named no ergonomic cost ("none I can name"), and no recorded decision covers it | The shape is rewritten in place; a one-line entry in the decisions section | No, beyond the diff |
-| **Adopted with a cost** | The reviewer named a real cost | The shape is rewritten in place, provisionally; the decisions section records both the cost and the obligation it retires | Yes, with both sides, so the user can flip it |
+| **Adopted** | The reviewer named no ergonomic cost at the caller's surface ("none I can name", or a cost internal to the implementing crate), and no recorded decision covers it | The shape is rewritten in place; a one-line entry in the decisions section | No, beyond the diff |
+| **Adopted with a cost** | The reviewer named a real cost, one that lands on a caller at the described surface (Findings, part 4) | The shape is rewritten in place, provisionally; the decisions section records both the cost and the obligation it retires | Yes, with both sides, so the user can flip it |
 | **Declined** | The remedy needs product knowledge the spec does not give, contradicts a recorded decision without breaking a goal, or is about something the spec left to the builder | Nothing changes in the body; the decisions section records the finding and why it was declined | Yes, so the user can overrule |
 
 There is no fourth bin and no unsorted finding. A finding you cannot sort is
 declined with the reason "could not sort", which puts it in front of the
 user. A finding already covered by an entry in `## Design decisions` gets no
-new entry. Only findings are sorted: a remedy a round's pass 8 deleted, and
-the round's closing out-of-scope paragraph, are not findings and get no bin.
+new entry. Sort the cost by the rule in Findings, part 4, not by the
+reviewer's label: "one more match arm in the library" is none. That is what
+keeps the keep-or-flip list to genuine trade-offs.
+
+Only findings are sorted. A remedy a round's pass 8 deleted is not a finding
+and gets no bin. A finding below the structural bar in Findings is not
+sorted either: it is an aside, like everything in the round's closing
+paragraph, and the asides are kept for the message's last line.
 
 **Oscillation guard.** A finding that would reverse an adopted entry (restore
 a shape an earlier round retired, or retire one it introduced) is declined
@@ -374,17 +397,18 @@ form:
   carries;
 - for **Declined**, `Reason:` and why.
 
-> - **Adopted (round 1).** A sensor reading is an enum of a value or a fault
->   code, never a value with an optional fault beside it. Retires: the "a
->   reading with a fault ignores its value" rule.
-> - **Adopted with a cost (round 2).** `Celsius` and `Millivolts` are
->   newtypes. Cost: every caller that forwards a raw sample converts at the
->   boundary. Retires: a voltage passed where a temperature was meant, which
->   the calibration table would otherwise accept.
-> - **Declined (round 2).** Typestate over `Driver` for open, configure, and
->   stream. Reason: the three calls are made from different owners at
->   different times and the spec does not say one value holds the bus; needs
->   the user.
+> - **Adopted (round 1).** A job's retry policy is an enum of never, a fixed
+>   count, or until a deadline, never a count where zero means forever.
+>   Retires: the "a retry count of 0 retries without limit" rule.
+> - **Adopted with a cost (round 2).** `Queue::push` takes a `Priority`
+>   parsed once from the 1-to-9 range, not a `u8`. Cost: every caller that
+>   forwards a priority from its own config converts at the boundary.
+>   Retires: a priority of 0 or 12 reaching the scheduler, which would
+>   otherwise clamp it silently.
+> - **Declined (round 2).** `pop` returns a `Lease` that acknowledges the job
+>   when dropped. Reason: the spec has a separate process acknowledge a job
+>   after it reports, so no one value holds a job from pop to acknowledge;
+>   needs the user.
 
 **Convergence.** The loop stops when every finding a round returns is
 already covered by an entry, or when a round finds nothing. A round that adds
@@ -407,7 +431,7 @@ message's first line that rounds were not independent.
 ## What The User Receives
 
 One message, after the loop converges or hits the cap, with four parts in
-this order:
+this order, and an optional fifth:
 
 1. **One line:** rounds run (by number), findings adopted, items awaiting
    the user, and whether the loop converged or did not converge at the cap;
@@ -419,9 +443,13 @@ this order:
    flip" is implied; do not ask it per item.
 3. **The Declined items**, in the same order, each with its reason.
 4. **One line** pointing at the spec's diff for the adopted bin.
+5. **Optionally, one sentence** collecting the rounds' asides (a bug noticed
+   in the spec's logic, a requirement gap, a below-bar point), on the budget
+   [rust-design-review](../rust-design-review/SKILL.md) gives its closing
+   paragraph. Present only when a round produced asides; it never leads.
 
 Nothing else: no per-round narrative, no list of the plain Adopted items
-beyond the diff, no restatement of the spec, no out-of-scope asides. Parts 2
+beyond the diff, no restatement of the spec. Parts 2
 and 3 carry only this invocation's entries. When a part is empty, say so in
 a clause ("nothing awaits a keep-or-flip"). When the first round finds
 nothing new, the first line says the spec was already converged.
@@ -454,6 +482,7 @@ Name these if you see them, in one line, and move on:
 | Specs with no Rust surface: a frontend, a protocol with no Rust shapes | not this skill; say so in the one paragraph and stop |
 | PR-time review of the code that implements the spec | [rust-design-review](../rust-design-review/SKILL.md), which still runs |
 | Correctness bugs visible in the spec's logic | the built-in `/code-review` once code exists; until then, an aside |
+| Anything below the structural bar in Findings: a detail the spec does not fix, a completeness gap, naming or docs, a shape you would have to invent | the round's closing paragraph; the builder or the plan |
 
 Everything out of scope shares **one short closing paragraph**, after the
 last finding, on the same budget as
@@ -484,3 +513,5 @@ skill's soundness and security carve-out applies here unchanged.
 | "The spec already has decisions, so I'll start a fresh section." | Read the existing `## Design decisions` section and append to it, numbering rounds from its highest. A second section splits the only memory the rounds share. |
 | "I'll give round two the round-one findings so it doesn't repeat them." | Then round two reviews round one, not the spec. The decisions section is the only memory across rounds; a covered finding is caught by sorting, not by priming. |
 | "The new shape makes the rule redundant, but I'll keep a softer version of the sentence." | Delete it. A softened sentence beside the shape that replaced it tells the next round the shape does not hold the rule. |
+| "One more match arm is a cost, so it is Adopted with a cost." | A cost counts when it lands on a caller at the described surface. A match arm inside the library, or one the caller already writes, is "none I can name"; calling it a cost fills the keep-or-flip list with non-choices. |
+| "The spec doesn't say how this failure, lock, or flow works, so I'll propose the shape." | That is a completeness gap, below the structural bar. It goes in the closing paragraph. A finding's subject is a shape the spec names or a sentence it states. |
