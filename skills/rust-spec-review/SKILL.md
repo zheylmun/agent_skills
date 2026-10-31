@@ -253,10 +253,14 @@ pass does:
   authority, and the break is the signal.
 - **Your own remedies from passes 1 to 7.** Each must name what wants it: a
   goal of the spec, a sentence of the authority, a caller obligation an
-  earlier pass named. **A remedy that cannot name what wants it is deleted,
-  not ranked.** Name each deletion in one line of the round's output, the
-  shape and the remedy, so the deletion outlives the round. The authority's
-  own choices, however odd, are not this review's to relitigate.
+  earlier pass named. A remedy from passes 1 to 7 is wanted by the caller
+  obligation its own second part names, so this pass deletes one only when
+  its sole justification is a future the authority does not promise (an
+  open set, a hedge, a field the authority does not define), or when the
+  authority forbids it. **Such a remedy is deleted, not ranked.** Name each
+  deletion in one line of the round's output, the shape and the remedy, so
+  the deletion outlives the round. The authority's own choices, however
+  odd, are not this review's to relitigate.
 
 ## Findings
 
@@ -348,9 +352,11 @@ plan rather than a spec, Plan Mode is the whole procedure instead.
 **Each round is a fresh subagent.** Dispatch a new one every round; never
 continue or message a previous round's reviewer. Its prompt carries only:
 
-- this file's absolute path, with the instruction to read What A Round
-  Reads, The Passes, and Findings and to return a round's output as Findings
-  describes it;
+- this file's absolute path, with the instruction to read it except The
+  Loop, What The User Receives, Applying The Answers and Plan Mode (so Out
+  Of Scope, with its closing-paragraph budget and soundness carve-out, and
+  the reviewer rows of Common Mistakes are read with the passes) and to
+  return a round's output as Findings describes it;
 - the absolute paths of the sibling skills listed under What A Round Reads,
   to be read before the spec;
 - the spec's absolute path, the absolute path of any document the spec
@@ -365,7 +371,8 @@ reviewer reads it as the author would have written it.
 **Sorting.** Apply this procedure to every finding a round returns, in
 order. The first step that matches is the finding's one disposition, and
 every finding gets exactly one. Your round notes, named below, are kept with
-the round reports, never in the spec.
+the round reports in the session's scratch space, outside the repo: never
+beside the spec, never committed, never in the spec.
 
 1. **Below the structural bar** (Findings), or out of scope: an aside. It
    gets no entry. Keep it in the round notes, with the round's closing
@@ -388,11 +395,17 @@ the round reports, never in the spec.
    too: that section is the author's, and the loop does not edit it. A
    finding that names a stated goal or anti-goal the decision makes
    unreachable is not covered: it goes on to step 5, where a goal-breaking
-   finding against the author's own decision is Declined, never Adopted.
+   finding against the author's own decision, or against an entry in
+   `## Design decisions`, is Declined, never Adopted. Adopting it would
+   leave two contradictory adopted entries; the user decides between them.
 3. **A repair** (pass 6): the finding shows that an adopted shape does not
    retire what its entry's `Retires:` says it retires. Revise that entry in
-   place: same bin, same round number, its sentence and `Retires:` brought
-   true, and `Revised in round N.` appended. Edit
+   place: same round number, its sentence and `Retires:` brought true, and
+   `Revised in round N.` appended. The bin stays, unless the repair lands a
+   cost on a caller at the described surface that passes the cost screen
+   below; then the entry moves to **Adopted with a cost** and gains
+   `Cost:`, so the repair reaches the keep-or-flip list like any other
+   trade-off. Edit
    the shape in the spec to the minimum that makes the retirement true, and
    add a new shape only when the retirement cannot be made true without
    one. A repair never produces a new entry, with two exceptions. If it
@@ -410,7 +423,7 @@ the round reports, never in the spec.
 |---|---|---|---|
 | **Adopted** | The reviewer named no ergonomic cost at the caller's surface ("none I can name", or a cost that fails the cost screen below) | The shape is rewritten in place; a one-line entry in the decisions section | No, beyond the diff |
 | **Adopted with a cost** | The reviewer named a cost that lands on a caller at the described surface and passes the cost screen below | The shape is rewritten in place, provisionally; the decisions section records both the cost and the obligation it retires | Yes, with both sides, so the user can flip it |
-| **Declined** | The remedy needs product knowledge the spec does not give, or is about something the spec left to the builder; or the finding breaks a stated goal by way of the author's own decision, with the reason "breaks <the goal named>; the author decided otherwise; needs the user", since the loop never rewrites the author's call | Nothing changes in the body; the decisions section records the finding and why it was declined | Yes, so the user can overrule |
+| **Declined** | The remedy needs product knowledge the spec does not give; or the finding breaks a stated goal by way of the author's own decision, with the reason "breaks <the goal named>; the author decided otherwise; needs the user", since the loop never rewrites the author's call; or it breaks a stated goal by way of an entry in `## Design decisions`, with the reason "breaks <the goal named>; changes round N's shape; needs the user", since the loop never holds two adopted shapes for one question | Nothing changes in the body; the decisions section records the finding and why it was declined | Yes, so the user can overrule |
 
 Separately, and not through the steps: each remedy a round's pass 8
 deleted because nothing wants it becomes a **Declined** entry naming the
@@ -449,12 +462,12 @@ described the obligation it retires. When the new shape makes a prose rule
 unnecessary, delete the sentence: do not soften it, qualify it, or leave it
 beside the shape that replaced it. The spec's Goals, Non-goals and
 Anti-goals bullets are exempt: a goal a new shape now carries stays, because
-it is the standard pass 6 and step 2 read decisions against. Do not restyle unrelated prose, and add no
-commentary to the body ("changed in review", "previously"): the history is
-the decisions section and the diff. A "Left to the builder" entry is never
-promoted into a decision, and an "Open with the user" question is never
-answered by the loop. Do not commit; the user commits the revised spec with
-the plan.
+it is the standard pass 6 and step 2 read decisions against. Do not restyle
+unrelated prose, and add no commentary to the body ("changed in review",
+"previously"): the history is the decisions section and the diff. A "Left
+to the builder" entry is never promoted into a decision, and an "Open with
+the user" question is never answered by the loop. Do not commit; the user
+commits the revised spec with the plan.
 
 **The decisions section.** The heading is `## Design decisions`. If it is
 absent, add it before "Left to the builder" and "Open with the user" when
@@ -495,7 +508,10 @@ proposal the loop rejected, not a change to the design. So a round whose
 only output is repairs, coverings and pass-8 declines has converged, and so
 has a round that finds nothing. A round that adds an entry is never the
 last, because nothing has yet read the spec it left, so a spec with findings
-takes at least two rounds. The cap is five rounds per invocation. If round
+takes at least two rounds. A repair in the converging round is the one edit
+no fresh round rereads; that trade is accepted, and the PR-time
+[rust-design-review](../rust-design-review/SKILL.md) covers it. The cap is
+five rounds per invocation. If round
 five still produces a new entry, stop; round five is not presented as
 converged. Keep a count of new entries per round, pass-8 Declined entries
 excluded as for convergence, since the cap report needs it.
@@ -506,8 +522,10 @@ new-entry counts are non-increasing over the last three rounds and the last
 round added at most two; then the first line also names the last two
 rounds' entries, since those are the ones the user should glance at.
 **Oscillating:** a "repaired twice" Declined entry or a "reverses round N"
-Declined entry was written in this invocation. Oscillating is checked
-first; a run that is neither is reported with its counts and neither word. None of the three is called converged.
+Declined entry was written in this invocation. The word describes the
+reviewers' proposals, not the spec: a guard that held means the spec did not
+move. Oscillating is checked first; a run that is neither is reported with
+its counts and neither word. None of the three is called converged.
 
 **Resume.** If the spec already has a `## Design decisions` section, read it
 and append to it. Do not start a second section and do not rewrite earlier
@@ -546,7 +564,11 @@ this order, an optional fifth, and one carve-out:
    now in the spec, its cost, and what it retires. The question "keep or
    flip" is implied; do not ask it per item.
 3. **The Declined items**, in the same order, each with its reason.
-4. **One line** pointing at the spec's diff for the adopted bin.
+4. **One line** pointing at the spec's diff for the adopted bin. It may
+   name, in one clause each, any Adopted entry whose change the product's
+   end user would observe (a new state the user sees, a failure that used to
+   be silent), so a behaviour change does not hide behind "see the diff".
+   That is not a bin: the entry stays Adopted and asks nothing.
 5. **Optionally, one sentence** collecting the rounds' asides (a bug noticed
    in the spec's logic, a requirement gap, a below-bar point), on the budget
    [rust-design-review](../rust-design-review/SKILL.md) gives its closing
@@ -554,10 +576,12 @@ this order, an optional fifth, and one carve-out:
    One sentence, not one per aside: when there are more than it carries,
    name the most consequential and end "and N more in the round reports",
    where N counts distinct asides, not the repeats of one across rounds, and
-   the round reports are kept and shown if the user asks.
+   the round reports are kept outside the repo, in the session's scratch
+   space, and shown if the user asks.
 
 Nothing else: no per-round narrative, no list of the plain Adopted items
-beyond the diff, no restatement of the spec. Parts 2
+beyond the diff and part 4's product-visible clauses, no restatement of the
+spec. Parts 2
 and 3 carry only this invocation's entries. When a part is empty, say so in
 a clause ("nothing awaits a keep-or-flip"). When the first round
 produces no new entry, the first line says the spec was already converged.
@@ -569,7 +593,8 @@ conversation, without re-running the loop:
 
 - **Keep** an Adopted with a cost item: nothing changes.
 - **Flip** one: restore the prior shape in the body, and the sentences the
-  change deleted, and rewrite its entry as `**Declined (round N).**`, keeping
+  change deleted, taking both from the diff or git history, and rewrite its
+  entry as `**Declined (round N).**`, keeping
   the entry's original round number, with the finding as its sentence,
   `Reason:` the user's reason, and `Revised by the user.` appended.
 - **Overrule** a declined item: adopt it, rewriting the shape and the entry
@@ -611,8 +636,8 @@ only these:
 2. **A decided shape no task implements.** Quote the decision and say that no
    task builds the shape.
 3. **A task that re-introduces a prose rule the spec retired**: a rule an
-   entry's `Retires:` names, or one the spec deleted for a shape. Name the
-   task, quote its sentence, and quote the entry.
+   entry's `Retires:` names. Name the task, quote its sentence, and quote
+   the entry.
 
 One plan fact is one item. A task that replaces a decided shape with the one
 it retired departs from it and restores its rule at once: that is one item,
@@ -676,7 +701,7 @@ Receives), where such a problem is stated in full ahead of the trade-offs.
 | "Five rounds ran, so it converged." | Convergence is a round that produces no new entry (repairs, coverings and pass-8 declines do not count). Round five with a new entry is the cap, and the first line says tapering or oscillating, with the per-round counts, never converged. |
 | "The cap was hit, so the spec is oscillating." | Only if this invocation wrote a "repaired twice" or a "reverses round N" Declined entry. Fresh reviewers have a find rate of their own; counts that fall to one or two a round are tapering, and the user glances at the last two rounds' entries rather than suspecting the design. |
 | "The retirement still isn't true after the last repair, so I'll repair it again." | An entry is repaired once. A second repair finding is Declined "repaired twice; needs the user"; the user decides the shape, not a third reviewer. |
-| "I'll summarise each round for the user." | The user gets one message in four parts. Per-round narrative is the noise the loop exists to absorb; the diff and the decisions section are the history. |
+| "I'll summarise each round for the user." | The user gets one message: the first line with the soundness carve-out, the keep-or-flip items, the declined items, the diff pointer, and at most one sentence of asides. Per-round narrative is the noise the loop exists to absorb; the diff and the decisions section are the history. |
 | "The subagent can't see the skills, so I'll paraphrase them in the prompt." | Hand it the absolute paths and tell it to read them. A paraphrase is a second copy of the standard, and it drifts. |
 | "The spec already has decisions, so I'll start a fresh section." | Read the existing `## Design decisions` section and append to it, numbering rounds from its highest. A second section splits the only memory the rounds share. |
 | "I'll give round two the round-one findings so it doesn't repeat them." | Then round two reviews round one, not the spec. The decisions section is the only memory across rounds; a covered finding is caught by sorting, not by priming. |

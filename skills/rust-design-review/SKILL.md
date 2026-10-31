@@ -102,13 +102,14 @@ have ranked. A decision covers the question it decides and no other, and it
 covers the whole shape it decided: a finding that only re-disputes the
 decision's stated premise for one part of that shape is the same finding and
 gets the same line, and a finding about another item, even one holding the
-same values, is not covered. Two findings a decision does not cover, and each
-is written in full and names the entry. One is a decision that makes a stated
-goal or anti-goal of the spec unreachable; it names the goal it breaks. The
-other is a **repair**: the decided shape does not do what its entry says it
-does, for instance it does not retire what `Retires:` says it retires; it
-names the obligation the caller still carries and the smallest change that
-makes the entry true. A decision you would have made differently is neither.
+same values, is not covered. Besides a departure, two further kinds of
+finding escape a decision's cover, and each is written in full and names the
+entry. One is a decision that makes a stated goal or anti-goal of the spec
+unreachable; it names the goal it breaks. The other is a **repair**: the
+decided shape does not do what its entry says it does, for instance it does
+not retire what `Retires:` says it retires; it names the obligation the
+caller still carries and the smallest change that makes the entry true. A
+decision you would have made differently is neither.
 
 A twenty-line PR that produces a full-crate audit is the behavior that makes
 people stop invoking this skill. Say which mode you are in, in the first line
