@@ -75,3 +75,58 @@ five lints (`too_many_arguments`, `fn_params_excessive_bools`,
 `must_use_candidate`, `missing_errors_doc`, `cast_precision_loss`) still
 fire under `cargo clippy --all-targets --all-features -- -W
 clippy::pedantic`.
+
+## `enrolment_spec.md` and `enrolment_contract.md`
+
+A design doc for a device enrolment client, at
+`tests/fixtures/enrolment_spec.md`, and the short server contract it answers
+to, at `tests/fixtures/enrolment_contract.md`. They are the input to
+**rust-spec-review**, which reviews a design before any code exists. These
+are markdown fixtures, not crates, and the prohibition above applies to them
+identically: do not tidy the prose, resolve the inconsistencies, or move a
+sentence to where it reads better. The spec is written as a competent
+author's natural prose, and each flaw sits inside a section that otherwise
+makes sense; that is the point.
+
+Seeded items, numbered as later tasks refer to them:
+
+1. `Client::new(base: &str)`, and `finalize(&self, key: &DeviceKey,
+   pending_id: &str)` beside `Enrolled { pub device_id: String, ... }` in the
+   same module, so a pending id and a device id are confusable `String`s.
+   Caught by: **rust-spec-review** pass 1.
+2. `Record { pending: Option<PendingRecord>, device: Option<DeviceRecord> }`
+   with the prose "exactly one of pending or device is present, or neither; a
+   file with both prefers device".
+   Caught by: **rust-spec-review** pass 2.
+3. "A keychain item that is not 32 bytes is `StoreError::Corrupt` and is
+   treated as no key."
+   Caught by: **rust-spec-review** pass 3.
+4. "Every write re-checks that the record still names the id being updated,
+   and the mutex is never held across a network or keychain call."
+   Caught by: **rust-spec-review** pass 4.
+5. "The machine remembers `cancelled: Option<PendingId>`; `Begin` clears it,
+   so a new attempt is never hijacked by the old one." This names a
+   `PendingId` newtype in prose while item 1 uses `&str`; the inconsistency is
+   deliberate and is itself evidence.
+   Caught by: **rust-spec-review** pass 5.
+6. `trait BrowserOpener { fn open(&self, url: &str) -> io::Result<()>; }`
+   with one described implementor that shells out to `open`, no test double
+   mentioned, and the sentence "so a future platform can supply its own".
+   Caught by: **rust-spec-review** pass 7.
+7. `#[non_exhaustive] pub enum FinalizeError { Pending, Denied, Expired,
+   Rejected, Unreachable }` with the sentence "non-exhaustive so the server
+   can add outcomes without breaking us", where the contract enumerates
+   `finalize`'s outcomes and says the set is closed.
+   Caught by: **rust-spec-review** pass 8.
+8. Under "Decisions": the counter is persisted through a `CounterStore` trait
+   (`fn reserve(&mut self) -> io::Result<u64>`) with a file store in the app
+   and a memory store in the library's tests, rather than a typestate over
+   the request; both stores are real and the trait has two implementors from
+   the first commit. This is a stated decision with a reason, and a naive
+   reviewer flags it.
+   Survives pass 6.
+9. Under "Left to the builder": "The exact shape of the tick timer that wakes
+   the machine at its next deadline." Nothing in the spec body describes that
+   timer, so a reviewer who proposes a timer type is reviewing a builder
+   decision.
+   Declined as left to the builder.
