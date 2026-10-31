@@ -170,7 +170,10 @@ does, the finding is dropped unless the reviewer can show the decision makes
 a stated goal or anti-goal unreachable, in which case the finding names the
 decision and the goal it breaks. This pass is what stops the loop
 oscillating and what keeps the skill from relitigating the user's product
-calls.
+calls. An adopted entry in the decisions section is a decision like any
+other and covers the shape it introduced; the one exception is a **repair**
+(section 6), a finding that shows the shape does not retire what the entry
+says it retires.
 
 ### 7. Cognitive load
 
@@ -221,7 +224,8 @@ to sort:
    place in the library", "the loader has to decide") is "none I can name".
 
 Each finding also carries the section of the spec it is about, so the
-orchestrator can edit the right place.
+orchestrator can edit the right place. A repair carries the decisions entry
+it repairs as its design fact.
 
 **The structural bar.** A finding's subject is a shape the spec names or a
 sentence the spec states, and its remedy either changes a named shape in a
@@ -259,8 +263,31 @@ The orchestrator never invents a fourth bin and never leaves a finding
 unsorted. A finding it cannot sort is declined with "could not sort" as the
 reason, which puts it in front of the user. A finding below the structural
 bar in section 5 is not sorted: it is an aside, and joins the round's
-closing paragraph. Calibrating the cost by section 5's rule is what keeps
-the keep-or-flip list to genuine trade-offs.
+closing paragraph.
+
+**The cost screen.** The reviewer's fourth part is a claim; the
+orchestrator's sort is the decision. A cost is real only if the spec's
+author, shown both shapes side by side, could plausibly choose the old one
+for ergonomics. A one-time, local cost fails the screen: one more match arm,
+one more argument carrying a value the caller already holds, one conversion
+in one place. Those are "none I can name", and the finding is adopted, not
+adopted with a cost. This is what keeps the keep-or-flip list to genuine
+trade-offs.
+
+**An adopted entry is a decision.** A fresh reviewer always finds
+something to say about a shape the previous round introduced, and if each
+such finding were new, the loop would cascade: every adoption names new
+shapes, and every new shape draws findings. So a finding whose subject is a
+shape an adopted entry introduced is covered by that entry, as pass 6 drops
+any finding a recorded decision covers, with one exception: the finding
+shows that the shape does not retire what the entry says it retires. That
+is a **repair**. The orchestrator records it by revising the existing entry
+in place, same bin and same round, with "Revised in round N." appended, and
+edits the spec's shape to the minimum that makes the retirement true. A
+repair never introduces a new shape unless the retirement cannot be made
+true without one, and it never produces a new entry. Fresh eyes on an
+adoption that failed is the point of a fresh round; a refinement of one that
+works is not.
 
 **Editing the spec.** Adopted changes are made in the spec's own voice and
 at the spec's own altitude. The orchestrator changes the shape the finding
@@ -289,13 +316,15 @@ sentence, the bin, the reason, and the round. Example:
 >   needs the user.
 
 **Convergence.** The loop stops when a round's findings are all covered by
-the decisions section, or when a round finds nothing. A hard cap of five
+the decisions section, or when a round finds nothing. A round that adds or
+revises an entry is not the last, since nothing has read the spec it left. A hard cap of five
 rounds, my call: hitting it means the spec is oscillating, and the skill
 says so to the user rather than presenting round five as converged.
 
 **Oscillation guard.** If a round's finding would reverse an adopted
 decision, it is sorted as declined with the reason "reverses round N", and
-goes to the user. The loop never undoes its own adoption.
+goes to the user. The loop never undoes its own adoption. A repair that
+would reverse its entry is declined the same way.
 
 ## 7. What the user receives
 
@@ -311,7 +340,9 @@ One message, after convergence or the cap. In order:
 5. Optionally, one sentence collecting the rounds' out-of-scope asides (a
    bug noticed in the spec's logic, a requirement gap, a below-bar point),
    on the budget `rust-design-review` gives its closing paragraph. Present
-   only when a round produced asides.
+   only when a round produced asides. It is one sentence however many there
+   are: past what one sentence carries, it ends "and N more in the round
+   reports", and the round reports are where they live.
 
 Nothing else. No per-round narrative, no restatement of the spec.
 

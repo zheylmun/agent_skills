@@ -188,6 +188,15 @@ the goal it breaks. A decision you would have made differently is not that.
 This pass is what keeps a review from relitigating the author's calls and
 what stops a loop of reviews from oscillating.
 
+An adopted entry in `## Design decisions` is a decision like any other, and
+it covers the shape it introduced. A finding whose subject is that shape is
+dropped, with one exception: the finding shows that the shape does not
+retire what the entry's `Retires:` says it retires. Then it is a **repair**,
+not a new finding: name the entry, the obligation the caller still carries,
+and the smallest change to the shape that makes the retirement true. A shape
+you would have designed differently, or a further refinement of one that
+already does its job, is covered.
+
 A "Left to the builder" entry, or anything the spec explicitly hands to the
 implementer, is never a finding's subject, and the spec's open questions for
 its user are not findings either. Neither is dropped by this pass, because
@@ -293,6 +302,9 @@ is pass 5's. A sentence that is evidence for a finding does not move it to
 pass 5: when a prose rule only corroborates a surface finding, the finding
 stays with the surface pass.
 
+A repair (pass 6) has the same four parts, with the entry it repairs as its
+design fact.
+
 One finding is one design fact with one remedy. Two facts about one type (a
 config struct whose `pub` field bypasses a validation rule, and whose
 defaults absorb a missing mandatory key) are two findings, because the
@@ -349,16 +361,31 @@ reviewer reads it as the author would have written it.
 
 | Bin | Rule | Effect on the spec | Reaches the user |
 |---|---|---|---|
-| **Adopted** | The reviewer named no ergonomic cost at the caller's surface ("none I can name", or a cost internal to the implementing crate), and no recorded decision covers it | The shape is rewritten in place; a one-line entry in the decisions section | No, beyond the diff |
-| **Adopted with a cost** | The reviewer named a real cost, one that lands on a caller at the described surface (Findings, part 4) | The shape is rewritten in place, provisionally; the decisions section records both the cost and the obligation it retires | Yes, with both sides, so the user can flip it |
+| **Adopted** | The reviewer named no ergonomic cost at the caller's surface ("none I can name", or a cost that fails the cost screen below), and no recorded decision covers it | The shape is rewritten in place; a one-line entry in the decisions section | No, beyond the diff |
+| **Adopted with a cost** | The reviewer named a cost that lands on a caller at the described surface and passes the cost screen below | The shape is rewritten in place, provisionally; the decisions section records both the cost and the obligation it retires | Yes, with both sides, so the user can flip it |
 | **Declined** | The remedy needs product knowledge the spec does not give, contradicts a recorded decision without breaking a goal, or is about something the spec left to the builder | Nothing changes in the body; the decisions section records the finding and why it was declined | Yes, so the user can overrule |
 
 There is no fourth bin and no unsorted finding. A finding you cannot sort is
 declined with the reason "could not sort", which puts it in front of the
 user. A finding already covered by an entry in `## Design decisions` gets no
-new entry. Sort the cost by the rule in Findings, part 4, not by the
-reviewer's label: "one more match arm in the library" is none. That is what
-keeps the keep-or-flip list to genuine trade-offs.
+new entry.
+
+**The cost screen.** The reviewer's fourth part is a claim; the sort is the
+decision. A cost is real only if the spec's author, shown the old shape and
+the new one side by side, could plausibly choose the old one for
+ergonomics. A one-time, local cost fails the screen: one more match arm, one
+more argument carrying a value the caller already holds, one conversion in
+one place. So does a cost internal to the implementing crate (Findings, part
+4). A finding whose cost fails the screen is **Adopted**, not Adopted with a
+cost. That is what keeps the keep-or-flip list to genuine trade-offs.
+
+**Repairs.** A repair (pass 6) is not sorted into a new entry. Revise the
+entry it repairs in place: same bin, same round number, its sentence and
+`Retires:` brought true, and `Revised in round N.` appended. Edit the shape
+in the spec to the minimum that makes the retirement true; a repair adds a
+new shape only when the retirement cannot be made true without one. A
+finding about a shape an adopted entry introduced that is not a repair is
+covered by that entry and gets nothing.
 
 Only findings are sorted. A remedy a round's pass 8 deleted is not a finding
 and gets no bin. A finding below the structural bar in Findings is not
@@ -368,7 +395,8 @@ paragraph, and the asides are kept for the message's last line.
 **Oscillation guard.** A finding that would reverse an adopted entry (restore
 a shape an earlier round retired, or retire one it introduced) is declined
 with the reason "reverses round N", naming that entry's round. The loop never
-undoes its own adoption; only the user does.
+undoes its own adoption; only the user does. A repair that would reverse
+its entry is declined the same way.
 
 **Editing the spec.** Make each adopted change in the spec's own voice and at
 its own altitude. Change the shape the finding names and the sentences that
@@ -395,7 +423,8 @@ form:
 - for **Adopted with a cost**, `Cost:` and the cost the reviewer named;
 - for an adopted entry, `Retires:` and the obligation the caller no longer
   carries;
-- for **Declined**, `Reason:` and why.
+- for **Declined**, `Reason:` and why;
+- after a repair, `Revised in round N.` at the end, once per revising round.
 
 > - **Adopted (round 1).** A job's retry policy is an enum of never, a fixed
 >   count, or until a deadline, never a count where zero means forever.
@@ -412,7 +441,7 @@ form:
 
 **Convergence.** The loop stops when every finding a round returns is
 already covered by an entry, or when a round finds nothing. A round that adds
-entries is never the last, because nothing has yet read the spec it left, so
+or revises entries is never the last, because nothing has yet read the spec it left, so
 a spec with findings takes at least two rounds. The cap is five rounds per
 invocation. If round five still returns a finding the decisions section does
 not cover, sort it, stop, and report that the loop **did not converge**: the
@@ -420,8 +449,9 @@ spec is oscillating, and round five is not presented as converged.
 
 **Resume.** If the spec already has a `## Design decisions` section, read it
 and append to it. Do not start a second section and do not rewrite earlier
-entries. Number rounds from the highest round already recorded: a spec whose
-last entry is round 2 starts this invocation at round 3.
+entries except by a repair. Number rounds from the highest round already
+recorded, counting `Revised in round N.` markers: a spec whose highest is
+round 2 starts this invocation at round 3.
 
 **Without a subagent tool**, run each round yourself. Before each round,
 re-read the spec from disk and the sibling skills, and work the passes from
@@ -447,6 +477,9 @@ this order, and an optional fifth:
    in the spec's logic, a requirement gap, a below-bar point), on the budget
    [rust-design-review](../rust-design-review/SKILL.md) gives its closing
    paragraph. Present only when a round produced asides; it never leads.
+   One sentence, not one per aside: when there are more than it carries,
+   name the most consequential and end "and N more in the round reports",
+   which you keep and show if the user asks.
 
 Nothing else: no per-round narrative, no list of the plain Adopted items
 beyond the diff, no restatement of the spec. Parts 2
@@ -515,3 +548,4 @@ skill's soundness and security carve-out applies here unchanged.
 | "The new shape makes the rule redundant, but I'll keep a softer version of the sentence." | Delete it. A softened sentence beside the shape that replaced it tells the next round the shape does not hold the rule. |
 | "One more match arm is a cost, so it is Adopted with a cost." | A cost counts when it lands on a caller at the described surface. A match arm inside the library, or one the caller already writes, is "none I can name"; calling it a cost fills the keep-or-flip list with non-choices. |
 | "The spec doesn't say how this failure, lock, or flow works, so I'll propose the shape." | That is a completeness gap, below the structural bar. It goes in the closing paragraph. A finding's subject is a shape the spec names or a sentence it states. |
+| "Round three found a better shape for what round one adopted, so I'll add it." | An adopted entry is a decision and covers the shape it introduced. Only a repair (the shape does not retire what the entry says) changes it, by revising that entry in place; a refinement is covered and gets nothing. |
