@@ -253,8 +253,9 @@ pass does:
 - **Your own remedies from passes 1 to 7.** Each must name what wants it: a
   goal of the spec, a sentence of the authority, a caller obligation an
   earlier pass named. **A remedy that cannot name what wants it is deleted,
-  not ranked.** The authority's own choices, however odd, are not this
-  review's to relitigate.
+  not ranked.** Name each deletion in one line of the round's output, the
+  shape and the remedy, so the deletion outlives the round. The authority's
+  own choices, however odd, are not this review's to relitigate.
 
 ## Findings
 
@@ -324,6 +325,7 @@ straight to the user, is:
   without the spec open, with its pass and its spec section named;
 - a clause for every pass that found nothing, and pass 6's clause naming the
   decisions it read;
+- one line for each remedy pass 8 deleted, naming the shape and the remedy;
 - one short closing paragraph for anything out of scope or below the bar;
 - and, when no pass finds anything, a paragraph saying the design is sound
   and why, instead of the findings.
@@ -365,10 +367,15 @@ reviewer reads it as the author would have written it.
 | **Adopted with a cost** | The reviewer named a cost that lands on a caller at the described surface and passes the cost screen below | The shape is rewritten in place, provisionally; the decisions section records both the cost and the obligation it retires | Yes, with both sides, so the user can flip it |
 | **Declined** | The remedy needs product knowledge the spec does not give, contradicts a recorded decision without breaking a goal, or is about something the spec left to the builder | Nothing changes in the body; the decisions section records the finding and why it was declined | Yes, so the user can overrule |
 
-There is no fourth bin and no unsorted finding. A finding you cannot sort is
-declined with the reason "could not sort", which puts it in front of the
-user. A finding already covered by an entry in `## Design decisions` gets no
-new entry.
+**The sort is total.** Every finding a round returns ends in exactly one
+of three places: a new entry, a repair marker on an existing entry, or the
+name of the entry that already covers it, written in your round notes (kept
+with the round reports, never in the spec). A finding that ends in none of
+them is the defect: it is neither in the spec nor answered, so the next
+reviewer raises it again. There is no fourth bin. A finding you cannot sort
+is declined with the reason "could not sort", which puts it in front of the
+user. A finding already covered by an entry gets no new entry, only the
+covering entry's name in the notes.
 
 **The cost screen.** The reviewer's fourth part is a claim; the sort is the
 decision. A cost is real only if the spec's author, shown the old shape and
@@ -387,9 +394,13 @@ new shape only when the retirement cannot be made true without one. A
 finding about a shape an adopted entry introduced that is not a repair is
 covered by that entry and gets nothing.
 
-Only findings are sorted. A remedy a round's pass 8 deleted is not a finding
-and gets no bin. A finding below the structural bar in Findings is not
-sorted either: it is an aside, like everything in the round's closing
+**Pass 8 deletions are remembered.** Each remedy a round's pass 8 deleted
+because nothing wants it becomes a **Declined** entry naming the shape and
+the remedy, with the reason "no authority wants it", so the next round's
+pass 6 reads it and does not propose the remedy again. It reaches the user
+with the other Declined items.
+
+A finding below the structural bar in Findings is not sorted: it is an aside, like everything in the round's closing
 paragraph, and the asides are kept for the message's last line.
 
 **Oscillation guard.** A finding that would reverse an adopted entry (restore
@@ -439,13 +450,15 @@ form:
 >   after it reports, so no one value holds a job from pop to acknowledge;
 >   needs the user.
 
-**Convergence.** The loop stops when every finding a round returns is
-already covered by an entry, or when a round finds nothing. A round that adds
-or revises entries is never the last, because nothing has yet read the spec it left, so
-a spec with findings takes at least two rounds. The cap is five rounds per
-invocation. If round five still returns a finding the decisions section does
-not cover, sort it, stop, and report that the loop **did not converge**: the
-spec is oscillating, and round five is not presented as converged.
+**Convergence.** The loop has converged after a round that produces no new
+entry. Repairs and covered findings do not count: both are movements inside
+decisions already taken, so a round whose only output is repairs and
+coverings has converged, and so has a round that finds nothing. A round that
+adds an entry is never the last, because nothing has yet read the spec it
+left, so a spec with findings takes at least two rounds. The cap is five
+rounds per invocation. If round five still produces a new entry, stop and
+report that the loop **did not converge**: the spec is oscillating, and
+round five is not presented as converged.
 
 **Resume.** If the spec already has a `## Design decisions` section, read it
 and append to it. Do not start a second section and do not rewrite earlier
@@ -484,8 +497,8 @@ this order, and an optional fifth:
 Nothing else: no per-round narrative, no list of the plain Adopted items
 beyond the diff, no restatement of the spec. Parts 2
 and 3 carry only this invocation's entries. When a part is empty, say so in
-a clause ("nothing awaits a keep-or-flip"). When the first round finds
-nothing new, the first line says the spec was already converged.
+a clause ("nothing awaits a keep-or-flip"). When the first round
+produces no new entry, the first line says the spec was already converged.
 
 ## Applying The Answers
 
@@ -540,7 +553,7 @@ skill's soundness and security carve-out applies here unchanged.
 | "I found a gap in the requirements, so I led with it." | Requirement completeness is out of scope. It goes in the one closing paragraph, after the last finding. |
 | "The fix was clearly right, so I absorbed the cost silently." | A cost the reviewer named and the loop absorbed without recording is the one outcome worse than not running the skill. It is Adopted with a cost: the entry names the cost, and the user sees it. |
 | "Round three disagrees with round one, so I'll go with round three." | A later round is not a better authority. A finding that would reverse an adopted entry is Declined with "reverses round N" and goes to the user; the loop never undoes its own adoption. |
-| "Five rounds ran, so it converged." | Convergence is a round whose findings are all covered, or a round that finds nothing. Round five with an uncovered finding is the cap, and the message says the loop did not converge. |
+| "Five rounds ran, so it converged." | Convergence is a round that produces no new entry. Round five with a new entry is the cap, and the message says the loop did not converge. |
 | "I'll summarise each round for the user." | The user gets one message in four parts. Per-round narrative is the noise the loop exists to absorb; the diff and the decisions section are the history. |
 | "The subagent can't see the skills, so I'll paraphrase them in the prompt." | Hand it the absolute paths and tell it to read them. A paraphrase is a second copy of the standard, and it drifts. |
 | "The spec already has decisions, so I'll start a fresh section." | Read the existing `## Design decisions` section and append to it, numbering rounds from its highest. A second section splits the only memory the rounds share. |
@@ -549,3 +562,4 @@ skill's soundness and security carve-out applies here unchanged.
 | "One more match arm is a cost, so it is Adopted with a cost." | A cost counts when it lands on a caller at the described surface. A match arm inside the library, or one the caller already writes, is "none I can name"; calling it a cost fills the keep-or-flip list with non-choices. |
 | "The spec doesn't say how this failure, lock, or flow works, so I'll propose the shape." | That is a completeness gap, below the structural bar. It goes in the closing paragraph. A finding's subject is a shape the spec names or a sentence it states. |
 | "Round three found a better shape for what round one adopted, so I'll add it." | An adopted entry is a decision and covers the shape it introduced. Only a repair (the shape does not retire what the entry says) changes it, by revising that entry in place; a refinement is covered and gets nothing. |
+| "This finding came up before and I'm not sure what covers it, so I'll let it go." | The sort is total: a new entry, a repair marker, or the name of the covering entry in your round notes. A finding that ends nowhere comes back next round, and the loop cannot converge on it. |

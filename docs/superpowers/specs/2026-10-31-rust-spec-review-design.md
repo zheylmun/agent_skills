@@ -195,8 +195,9 @@ proposes that the authority does not ask for, and remedies from passes 1 to 7
 that the authority forbids or that would hedge a signal it wants loud (an
 open enum over a set the contract enumerates exhaustively, a default that
 absorbs a new mandatory field). A remedy that cannot name what wants it is
-deleted here, not ranked. If nothing governs the spec, the review says so in
-a clause.
+deleted here, not ranked, and the round's output names each deletion in one
+line, the shape and the remedy, so the orchestrator can record it (section
+6). If nothing governs the spec, the review says so in a clause.
 
 ## 5. Findings
 
@@ -259,9 +260,20 @@ Between rounds the orchestrator sorts every finding into one bin:
 | **Adopted with a cost** | The reviewer named a real cost, one that lands on a caller at the described surface | The shape is rewritten in place, provisionally; the decisions section records both the cost and the obligation it retires | Yes, with both sides, so the user can flip it |
 | **Declined** | The remedy needs product knowledge the spec does not give, contradicts a recorded decision without breaking a goal, or is about something the spec left to the builder | Nothing changes in the body; the decisions section records the finding and why it was declined | Yes, so the user can overrule |
 
-The orchestrator never invents a fourth bin and never leaves a finding
-unsorted. A finding it cannot sort is declined with "could not sort" as the
-reason, which puts it in front of the user. A finding below the structural
+The orchestrator never invents a fourth bin, and the sort is total: every
+finding a round returns ends in exactly one of a new entry, a repair marker
+on an existing entry, or the name of the entry that already covers it,
+written in the orchestrator's round notes rather than in the spec. A finding
+that ends nowhere is neither in the spec nor answered, and the next round
+raises it again. A finding it cannot sort is declined with "could not sort"
+as the reason, which puts it in front of the user.
+
+**Pass 8 deletions are remembered.** A remedy a round's pass 8 deleted
+because no authority wants it is recorded as a **Declined** entry naming
+the shape and the remedy, with the reason "no authority wants it", so the
+next round's pass 6 sees it. It reaches the user with the other declined
+items. Otherwise a deletion lasts one round, and a later reviewer proposes
+the same remedy as new. A finding below the structural
 bar in section 5 is not sorted: it is an aside, and joins the round's
 closing paragraph.
 
@@ -315,9 +327,11 @@ sentence, the bin, the reason, and the round. Example:
 >   after it reports, so no one value holds a job from pop to acknowledge;
 >   needs the user.
 
-**Convergence.** The loop stops when a round's findings are all covered by
-the decisions section, or when a round finds nothing. A round that adds or
-revises an entry is not the last, since nothing has read the spec it left. A hard cap of five
+**Convergence.** The loop has converged after a round that produces no new
+entry. Repairs and covered findings do not count: both are movements inside
+decisions already taken, so a round whose only output is repairs and
+coverings has converged. A round that adds an entry is not the last, since
+nothing has read the spec it left. A hard cap of five
 rounds, my call: hitting it means the spec is oscillating, and the skill
 says so to the user rather than presenting round five as converged.
 
