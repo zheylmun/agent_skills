@@ -266,7 +266,9 @@ finding gets exactly one disposition. The orchestrator's round notes are kept
 with the round reports, never in the spec.
 
 1. **Below the structural bar** (section 5), or out of scope: an aside, kept
-   in the round notes with the round's closing paragraph. No entry.
+   in the round notes with the round's closing paragraph. No entry. An
+   out-of-scope soundness or security point is still an aside here, and the
+   user message carries it in full, ahead of the trade-offs (section 7).
 2. **Covered by a recorded decision**: the author's own, under whatever
    heading, or an entry in the decisions section, including a Declined entry
    from a pass-8 deletion and an adopted entry whose shape the finding is
@@ -277,11 +279,13 @@ with the round reports, never in the spec.
    every adoption names new shapes, and every new shape draws findings. So a
    finding against a shape an adopted entry introduced, whether a
    refinement, a different design, or a proposal to replace or retire it, is
-   covered by that entry unless it is a repair (step 3). A finding whose
-   remedy changes a shape stated only inside the author's own decisions
-   section is covered here too, since the loop does not edit that section.
+   covered by that entry unless it is a repair (step 3) or would restore
+   what the entry retired (step 4). A finding whose remedy changes a shape
+   stated only inside the author's own decisions section is covered here
+   too, since the loop does not edit that section.
    A finding that shows the decision makes a stated goal or anti-goal
-   unreachable is not covered and goes on to step 5.
+   unreachable is not covered and goes on to step 5, where a goal-breaking
+   finding against the author's own decision is Declined, never Adopted.
 3. **A repair**: the finding shows an adopted shape does not retire what its
    entry says it retires. The orchestrator revises the existing entry in
    place, same bin and same round, with "Revised in round N." appended, and
@@ -305,7 +309,7 @@ with the round reports, never in the spec.
 |---|---|---|---|
 | **Adopted** | The reviewer named no ergonomic cost at the caller's surface (a cost internal to the implementing crate counts as none, and so does one that fails the cost screen) | The shape is rewritten in place; a one-line entry in the decisions section | No, beyond the diff |
 | **Adopted with a cost** | The reviewer named a real cost, one that lands on a caller at the described surface and passes the cost screen | The shape is rewritten in place, provisionally; the decisions section records both the cost and the obligation it retires | Yes, with both sides, so the user can flip it |
-| **Declined** | The remedy needs product knowledge the spec does not give, contradicts a recorded decision without breaking the goal the finding named, or is about something the spec left to the builder | Nothing changes in the body; the decisions section records the finding and why it was declined | Yes, so the user can overrule |
+| **Declined** | The remedy needs product knowledge the spec does not give, or is about something the spec left to the builder; or the finding breaks a stated goal by way of the author's own decision, with the reason "breaks <the goal named>; the author decided otherwise; needs the user", since the first anti-goal forbids the loop rewriting the author's decisions | Nothing changes in the body; the decisions section records the finding and why it was declined | Yes, so the user can overrule |
 
 **Pass 8 deletions are remembered**, separately from the steps. A remedy a
 round's pass 8 deleted because no authority wants it is recorded as a
@@ -322,7 +326,11 @@ for ergonomics. A one-time, local cost fails the screen: one more match arm,
 one more argument carrying a value the caller already holds, one conversion
 in one place. Those are "none I can name", and the finding is adopted, not
 adopted with a cost. This is what keeps the keep-or-flip list to genuine
-trade-offs.
+trade-offs. A conversion or construction that recurs at every caller of a
+public signature passes the screen, however the reviewer describes it: it is
+the newtype tension that `rust-principles` principle 5 leaves to per-API
+judgment, which is the author's call, so such a finding is adopted with a
+cost, never plain adopted.
 
 The orchestrator never invents a fourth bin or a sixth step. A finding it
 cannot place is declined with "could not sort" as the reason, which puts it
@@ -372,12 +380,14 @@ the cap will be hit on honest runs; what the skill owes the user at the cap
 is an account of what happened, not a blanket verdict.
 
 **At the cap**, the first line of the user message gives the per-round
-new-entry counts and names one of two things. **Tapering:** the counts are
-non-increasing over the last three rounds and the last round added at most
-two; the line then names the last two rounds' entries, the ones the user
-should glance at. **Oscillating:** any entry was repaired twice, or any
-entry is Declined "reverses round N"; it is checked first. A run that is
-neither is reported with its counts alone. None is called converged.
+new-entry counts, pass-8 Declined entries excluded as for convergence, and
+names one of two things. **Tapering:** the counts are non-increasing over
+the last three rounds and the last round added at most two; the line then
+names the last two rounds' entries, the ones the user should glance at.
+**Oscillating:** a "repaired twice" Declined entry or a "reverses round N"
+Declined entry was written in this invocation; it is checked first. A run
+that is neither is reported with its counts alone. None is called
+converged.
 
 **Resume.** A spec that already has a decisions section, from a previous
 invocation, is read and appended to: one section, earlier entries left as
@@ -434,20 +444,26 @@ and the next step is `writing-plans`.
 
 A second, lighter mode, invoked after `writing-plans`, or on a direct request
 to review a plan. One round, no loop. The reviewer reads the plan and the
-spec it implements and reports:
+spec it implements (the one the request names, else the one the plan
+names) and reports:
 
 - any task whose described code departs from a shape the spec decided,
   naming the decision;
 - any decided shape no task implements;
 - any task that re-introduces a prose rule the spec retired.
 
+Each item names the plan task and quotes the decision. One plan fact is one
+item: a task that swaps a decided shape for the one it retired is reported
+once, under the first check, with the restored rule named in it.
+
 It makes no new design findings: a plan that is faithful to a reviewed spec
-has nothing structural left to find. "Decided" means an entry in the spec's
-decisions section or, where the spec has none, a shape the spec states
-outright; the three checks run either way. When the spec has no decisions
-section, the report leads with one line saying the spec has not been through
-the loop and recommending it, then gives the three checks against the spec's
-stated shapes. It does not edit the plan; the orchestrator reports and the
+has nothing structural left to find, and a choice the spec left to the
+builder is the plan's to make. "Decided" means an entry in the spec's
+decisions section or a decision of the author's own, or, where no entry
+covers a shape, the shape the spec states outright; the three checks run
+either way. When the spec has no decisions section, the report leads with
+one line saying the spec has not been through the loop and recommending it,
+then gives the three checks against the spec's stated shapes. It does not edit the plan; the orchestrator reports and the
 user or `writing-plans` fixes.
 
 ## 9. Changes to the other skills
@@ -497,9 +513,11 @@ fixture under `tests/fixtures`. For this skill:
 - **Plan mode scenario:** a second fixture, `tests/fixtures/
   enrolment_spec_reviewed.md`, hand-authored as the first fixture's
   post-review state with a decisions section, so the test does not depend on
-  a prior live run mutating the first fixture; plus a plan against it with
-  one task that re-introduces the two-`Option` shape. GREEN names the task
-  and the decision.
+  a prior live run mutating the first fixture; plus a plan against it,
+  `tests/fixtures/enrolment_plan.md`, with three departures: one task
+  re-introduces the two-`Option` shape, one takes a bare `String` device id,
+  and no task implements the decided write method. GREEN names each task
+  and quotes each decision, and nothing else.
 
 The loop itself is exercised by running the skill on the fixture end to end
 once and checking that round two produces no new finding against the shapes

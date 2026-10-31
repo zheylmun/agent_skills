@@ -130,3 +130,33 @@ Seeded items, numbered as later tasks refer to them:
    timer, so a reviewer who proposes a timer type is reviewing a builder
    decision.
    Declined as left to the builder.
+
+### `enrolment_spec_reviewed.md` and `enrolment_plan.md`
+
+The input to **rust-spec-review**'s plan mode, under the same prohibition:
+do not tidy either one, and do not bring the plan into line with the spec.
+
+`tests/fixtures/enrolment_spec_reviewed.md` is `enrolment_spec.md` as it
+would read after the loop, hand-authored so no test depends on a live run.
+It departs from `enrolment_spec.md` in exactly these ways: items 1 to 7 above
+are rewritten in the body (`PendingId`, `DeviceId` and a `ServerUrl` parsed
+once; `Record` an enum of `Pending` or `Device` with a `BothRecorded` load
+error and no tie-break; a missing key as `Ok(None)` and `StoreError::Corrupt`
+returned, not treated as no key; writes through `Record::update_if(id, ..)`;
+a per-start `AttemptId`; a plain function in place of `BrowserOpener`; an
+exhaustive `FinalizeError`), and a `## Design decisions` section records them,
+item 1 as Adopted with a cost and items 2 to 7 as Adopted, plus one Declined
+entry for a typestate over `Client`. Items 8 and 9 are unchanged.
+
+`tests/fixtures/enrolment_plan.md` is a four-task implementation plan against
+the reviewed spec. It departs from that spec in exactly three places, and is
+faithful everywhere else:
+
+1. Task 2's `DeviceFile` holds `pending: Option<PendingRecord>` and
+   `device: Option<DeviceRecord>`, and `load` prefers `device` when both are
+   present: the shape and the tie-break the item 2 entry retired.
+2. Task 3's `products` takes the device id as a bare `String`, departing from
+   the item 1 entry.
+3. No task implements `Record::update_if`, the item 4 entry's shape.
+
+Caught by: **rust-spec-review** plan mode, as three items and nothing else.
