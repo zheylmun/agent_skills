@@ -352,8 +352,9 @@ continue or message a previous round's reviewer. Its prompt carries only:
   describes it;
 - the absolute paths of the sibling skills listed under What A Round Reads,
   to be read before the spec;
-- the spec's absolute path, and the paths of any existing crate modules the
-  spec touches.
+- the spec's absolute path, the absolute path of any document the spec
+  names as governing it (the contract pass 8 opens), and the paths of any
+  existing crate modules the spec touches.
 
 It never carries the previous round's findings, the orchestrator's sorting of
 them, or a summary of what changed. The `## Design decisions` section in the
@@ -378,18 +379,23 @@ the round reports, never in the spec.
    to replace or retire that shape) is covered by that entry unless it is a
    repair, which is step 3. A fresh reviewer always has something to say
    about a shape the previous round introduced, and if each such finding
-   were new the loop would cascade. A finding that names a stated goal or
-   anti-goal the decision makes unreachable is not covered: it goes on to
-   step 5.
+   were new the loop would cascade. A finding whose remedy changes a shape
+   stated only inside the author's own decisions section is covered here
+   too: that section is the author's, and the loop does not edit it. A
+   finding that names a stated goal or anti-goal the decision makes
+   unreachable is not covered: it goes on to step 5.
 3. **A repair** (pass 6): the finding shows that an adopted shape does not
    retire what its entry's `Retires:` says it retires. Revise that entry in
    place: same bin, same round number, its sentence and `Retires:` brought
-   true, and `Revised in round N.` appended, once per revising round. Edit
+   true, and `Revised in round N.` appended. Edit
    the shape in the spec to the minimum that makes the retirement true, and
    add a new shape only when the retirement cannot be made true without
-   one. A repair never produces a new entry, with one exception: if it
+   one. A repair never produces a new entry, with two exceptions. If it
    would reverse the entry, restoring what the entry retired, it is
-   **Declined** with the reason "reverses round N".
+   **Declined** with the reason "reverses round N". And an entry is
+   repaired once: a repair finding against an entry that already carries
+   `Revised in round N.` is **Declined** with the reason "repaired twice;
+   needs the user", which sends it to the user and ends the chain.
 4. **Would restore a shape an entry retired:** **Declined** with the reason
    "reverses round N", naming that entry's round. The loop never undoes its
    own adoption; only the user does.
@@ -429,7 +435,9 @@ converge on it.
 its own altitude. Change the shape the finding names and the sentences that
 described the obligation it retires. When the new shape makes a prose rule
 unnecessary, delete the sentence: do not soften it, qualify it, or leave it
-beside the shape that replaced it. Do not restyle unrelated prose, and add no
+beside the shape that replaced it. The spec's Goals, Non-goals and
+Anti-goals bullets are exempt: a goal a new shape now carries stays, because
+it is the standard pass 6 and step 2 read decisions against. Do not restyle unrelated prose, and add no
 commentary to the body ("changed in review", "previously"): the history is
 the decisions section and the diff. A "Left to the builder" entry is never
 promoted into a decision, and an "Open with the user" question is never
@@ -470,13 +478,25 @@ form:
 
 **Convergence.** The loop has converged after a round that produces no new
 entry. Repairs and covered findings do not count: both are movements inside
-decisions already taken, so a round whose only output is repairs and
-coverings has converged, and so has a round that finds nothing. A round that
-adds an entry is never the last, because nothing has yet read the spec it
-left, so a spec with findings takes at least two rounds. The cap is five
-rounds per invocation. If round five still produces a new entry, stop and
-report that the loop **did not converge**: the spec is oscillating, and
-round five is not presented as converged.
+decisions already taken. Nor do pass-8 Declined entries: they record a
+proposal the loop rejected, not a change to the design. So a round whose
+only output is repairs, coverings and pass-8 declines has converged, and so
+has a round that finds nothing. A round that adds an entry is never the
+last, because nothing has yet read the spec it left, so a spec with findings
+takes at least two rounds. The cap is five rounds per invocation. If round
+five still produces a new entry, stop; round five is not presented as
+converged. Keep a count of new entries per round, since the cap report
+needs it.
+
+**At the cap**, the message's first line names what happened, with the
+per-round new-entry counts, and it is one of two things. **Tapering:** the
+new-entry counts are non-increasing over the last three rounds and the last
+round added at most two; then the first line also names the last two
+rounds' entries, since those are the ones the user should glance at.
+**Oscillating:** any entry was repaired twice (a "repaired twice" decline
+exists), or any entry is Declined "reverses round N". Oscillating is
+checked first; a run that is neither is reported with its counts and
+neither word. None of the three is called converged.
 
 **Resume.** If the spec already has a `## Design decisions` section, read it
 and append to it. Do not start a second section and do not rewrite earlier
@@ -495,8 +515,11 @@ One message, after the loop converges or hits the cap, with four parts in
 this order, an optional fifth, and one carve-out:
 
 1. **One line:** rounds run (by number), findings adopted, items awaiting
-   the user, and whether the loop converged or did not converge at the cap;
-   and, under the fallback, that rounds were not independent.
+   the user, and whether the loop converged or stopped at the cap; at the
+   cap, "tapering" or "oscillating" as Convergence defines them, with the
+   per-round new-entry counts and, when tapering, the last two rounds'
+   entries by name; and, under the fallback, that rounds were not
+   independent.
 
    Then, ahead of the trade-offs, the carve-out that
    [rust-design-review](../rust-design-review/SKILL.md) makes in its Out Of
@@ -519,7 +542,8 @@ this order, an optional fifth, and one carve-out:
    paragraph. Present only when a round produced asides; it never leads.
    One sentence, not one per aside: when there are more than it carries,
    name the most consequential and end "and N more in the round reports",
-   which you keep and show if the user asks.
+   where N counts distinct asides, not the repeats of one across rounds, and
+   the round reports are kept and shown if the user asks.
 
 Nothing else: no per-round narrative, no list of the plain Adopted items
 beyond the diff, no restatement of the spec. Parts 2
@@ -592,7 +616,9 @@ Receives), where such a problem is stated in full ahead of the trade-offs.
 | "I found a gap in the requirements, so I led with it." | Requirement completeness is out of scope. It goes in the one closing paragraph, after the last finding. |
 | "The fix was clearly right, so I absorbed the cost silently." | A cost the reviewer named and the loop absorbed without recording is the one outcome worse than not running the skill. It is Adopted with a cost: the entry names the cost, and the user sees it. |
 | "Round three disagrees with round one, so I'll go with round three." | A later round is not a better authority. A finding that would restore a shape an adopted entry retired is Declined with "reverses round N" and goes to the user; the loop never undoes its own adoption. A finding that merely wants the adopted shape different is covered by the entry, not declined. |
-| "Five rounds ran, so it converged." | Convergence is a round that produces no new entry. Round five with a new entry is the cap, and the message says the loop did not converge. |
+| "Five rounds ran, so it converged." | Convergence is a round that produces no new entry (repairs, coverings and pass-8 declines do not count). Round five with a new entry is the cap, and the first line says tapering or oscillating, with the per-round counts, never converged. |
+| "The cap was hit, so the spec is oscillating." | Only if an entry was repaired twice or a finding was Declined "reverses round N". Fresh reviewers have a find rate of their own; counts that fall to one or two a round are tapering, and the user glances at the last two rounds' entries rather than suspecting the design. |
+| "The retirement still isn't true after the last repair, so I'll repair it again." | An entry is repaired once. A second repair finding is Declined "repaired twice; needs the user"; the user decides the shape, not a third reviewer. |
 | "I'll summarise each round for the user." | The user gets one message in four parts. Per-round narrative is the noise the loop exists to absorb; the diff and the decisions section are the history. |
 | "The subagent can't see the skills, so I'll paraphrase them in the prompt." | Hand it the absolute paths and tell it to read them. A paraphrase is a second copy of the standard, and it drifts. |
 | "The spec already has decisions, so I'll start a fresh section." | Read the existing `## Design decisions` section and append to it, numbering rounds from its highest. A second section splits the only memory the rounds share. |

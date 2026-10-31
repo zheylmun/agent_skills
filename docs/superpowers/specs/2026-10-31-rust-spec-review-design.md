@@ -100,6 +100,9 @@ Inputs, all read by every round's reviewer:
   reads the same files.
 - **The spec's own decisions section**, if a previous round or a previous
   invocation wrote one (section 6).
+- **The document the spec names as governing it**, when there is one. Pass
+  8 opens it, so the orchestrator carries its path in the reviewer's input
+  list beside the spec's.
 
 The skill edits the spec in place. The spec is committed, so the diff is the
 record. My call: the skill does not commit; the user commits the revised
@@ -274,18 +277,23 @@ with the round reports, never in the spec.
    every adoption names new shapes, and every new shape draws findings. So a
    finding against a shape an adopted entry introduced, whether a
    refinement, a different design, or a proposal to replace or retire it, is
-   covered by that entry unless it is a repair (step 3). A finding that
-   shows the decision makes a stated goal or anti-goal unreachable is not
-   covered and goes on to step 5.
+   covered by that entry unless it is a repair (step 3). A finding whose
+   remedy changes a shape stated only inside the author's own decisions
+   section is covered here too, since the loop does not edit that section.
+   A finding that shows the decision makes a stated goal or anti-goal
+   unreachable is not covered and goes on to step 5.
 3. **A repair**: the finding shows an adopted shape does not retire what its
    entry says it retires. The orchestrator revises the existing entry in
    place, same bin and same round, with "Revised in round N." appended, and
    edits the spec's shape to the minimum that makes the retirement true. A
    repair never introduces a new shape unless the retirement cannot be made
-   true without one, and never produces a new entry, unless it would reverse
-   its entry, restoring what the entry retired, in which case it is Declined
-   with the reason "reverses round N". Fresh eyes on an adoption that failed
-   is the point of a fresh round; a refinement of one that works is not.
+   true without one, and never produces a new entry, with two exceptions:
+   a repair that would reverse its entry, restoring what the entry retired,
+   is Declined with the reason "reverses round N"; and an entry is repaired
+   once, so a second repair finding against it is Declined with the reason
+   "repaired twice; needs the user", which ends the chain. Fresh eyes on an
+   adoption that failed is the point of a fresh round; a refinement of one
+   that works is not, and a third opinion on a repair is the user's to give.
 4. **Would restore a shape an entry retired**: Declined with the reason
    "reverses round N", and it goes to the user. The loop never undoes its own
    adoption. This is the oscillation guard, and it applies only here and in
@@ -325,7 +333,8 @@ answered, and the next round raises it again.
 at the spec's own altitude. The orchestrator changes the shape the finding
 names and the sentences that described the obligation it retires; the prose
 rule a finding was about is deleted, not softened, when the new shape makes
-it unnecessary. It does not restyle unrelated prose and does not add
+it unnecessary, except a Goals, Non-goals or Anti-goals bullet, which stays
+because pass 6 reads decisions against it. It does not restyle unrelated prose and does not add
 commentary to the body. A "Left to the builder" entry is never promoted into
 a decision by the loop.
 
@@ -353,11 +362,22 @@ answer appends "Revised by the user." Example:
 
 **Convergence.** The loop has converged after a round that produces no new
 entry. Repairs and covered findings do not count: both are movements inside
-decisions already taken, so a round whose only output is repairs and
-coverings has converged. A round that adds an entry is not the last, since
-nothing has read the spec it left. A hard cap of five rounds per invocation,
-my call: hitting it means the spec is oscillating, and the skill says so to
-the user rather than presenting round five as converged.
+decisions already taken. Pass-8 Declined entries do not count either: they
+record a proposal the loop rejected, not a change to the design. So a round
+whose only output is repairs, coverings and pass-8 declines has converged.
+A round that adds an entry is not the last, since nothing has read the spec
+it left. A hard cap of five rounds per invocation, my call. A fresh reviewer
+has a find rate of its own, so zero new entries is not a reliable stop and
+the cap will be hit on honest runs; what the skill owes the user at the cap
+is an account of what happened, not a blanket verdict.
+
+**At the cap**, the first line of the user message gives the per-round
+new-entry counts and names one of two things. **Tapering:** the counts are
+non-increasing over the last three rounds and the last round added at most
+two; the line then names the last two rounds' entries, the ones the user
+should glance at. **Oscillating:** any entry was repaired twice, or any
+entry is Declined "reverses round N"; it is checked first. A run that is
+neither is reported with its counts alone. None is called converged.
 
 **Resume.** A spec that already has a decisions section, from a previous
 invocation, is read and appended to: one section, earlier entries left as
@@ -372,7 +392,10 @@ rounds only.
 One message, after convergence or the cap. In order:
 
 1. One line: rounds run, findings adopted, items awaiting the user, and
-   whether the loop converged or hit the cap. Then, ahead of the trade-offs,
+   whether the loop converged or stopped at the cap, and at the cap whether
+   it was tapering or oscillating as section 6 defines them, with the
+   per-round counts and, when tapering, the last two rounds' entries by
+   name. Then, ahead of the trade-offs,
    `rust-design-review`'s soundness and security carve-out, unchanged: a
    soundness or security problem any round noticed (unsound `unsafe`, a data
    race, a memory-safety hole, a leaked credential) is stated plainly and in
@@ -388,7 +411,8 @@ One message, after convergence or the cap. In order:
    on the budget `rust-design-review` gives its closing paragraph. Present
    only when a round produced asides. It is one sentence however many there
    are: past what one sentence carries, it ends "and N more in the round
-   reports", and the round reports are where they live.
+   reports", where N counts distinct asides rather than one aside repeated
+   across rounds, and the round reports are where they live.
 
 Nothing else. No per-round narrative, no restatement of the spec.
 
