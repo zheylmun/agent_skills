@@ -93,16 +93,22 @@ Before pass 1, look for a `## Design decisions` section in a spec under
 `docs/superpowers/specs` that names the crate or module under review, or in a
 spec handed to you with the request;
 [rust-spec-review](../rust-spec-review/SKILL.md) is the skill that writes it.
-A finding that matches a recorded decision is reported in one line, as decided
-in the spec, with the entry quoted, and is not argued again: one line, not a
-section, and it stands where the finding would have ranked. A decision covers
-the question it decides and no other. Within that question it covers all of
-the shape, so a finding that the decision's premise fails for one part of the
-shape is the same finding and gets the same line; a finding about another
-item, even one holding the same values, is not covered. The one exception is a
-decision that makes a stated goal or anti-goal of the spec unreachable: that
-is a full finding, and it names the decision and the goal it breaks. A
-decision you would have made differently is not that.
+A decision applies only while the code is the shape its entry decided: code
+that departs from that shape is a full finding that names the entry and
+quotes it. A finding that matches a recorded decision is reported in one line,
+plus at most a clause on what else it covers, as decided in the spec, with the
+entry quoted, and is not argued again; the line stands where the finding would
+have ranked. A decision covers the question it decides and no other, and it
+covers the whole shape it decided: a finding that only re-disputes the
+decision's stated premise for one part of that shape is the same finding and
+gets the same line, and a finding about another item, even one holding the
+same values, is not covered. Two findings a decision does not cover, and each
+is written in full and names the entry. One is a decision that makes a stated
+goal or anti-goal of the spec unreachable; it names the goal it breaks. The
+other is a **repair**: the decided shape does not do what its entry says it
+does, for instance it does not retire what `Retires:` says it retires; it
+names the obligation the caller still carries and the smallest change that
+makes the entry true. A decision you would have made differently is neither.
 
 A twenty-line PR that produces a full-crate audit is the behavior that makes
 people stop invoking this skill. Say which mode you are in, in the first line
@@ -434,7 +440,7 @@ serious.
 | "The comments were fine — they explained the tricky parts well." | Principle 4 says a comment explaining a tricky part is evidence the part should not have been tricky. Pass 4 asks what the comment is standing in for; a well-written comment carrying an invariant the types could hold is a clearer finding, not an excused one. |
 | "The only thing pass 4 found was a comment, and a comment is a nit, so I cut it for length." | The comment is not the finding — the unenforced invariant behind it is, and that ranks by its cost to callers like anything else. See the comment rule under Output. |
 | "The PR was twenty lines, so I audited the whole crate's public surface while I was in there." | Change-scoped mode exists for this. Scope the findings to the surface the change touches and note crate-wide gate evidence once, in a sentence. An unrequested full-crate audit is how this review stops getting invoked. |
-| "The spec decided it, but I still think it's wrong, so I made the case anyway." | The decision is the author's call, recorded by [rust-spec-review](../rust-spec-review/SKILL.md). The review's job is to name the stated goal or anti-goal the decision makes unreachable and write a full finding, or to report it in one line quoting the entry. Disagreeing is not the exception, and neither is arguing that the decision's premise misses one part of the shape. |
+| "The spec decided it, but I still think it's wrong, so I made the case anyway." | The decision is the author's call, recorded by [rust-spec-review](../rust-spec-review/SKILL.md). The review's job is to name the stated goal or anti-goal the decision makes unreachable and write a full finding, or to report it in one line quoting the entry. Disagreeing is not the exception, and neither is re-disputing the decision's stated premise. Code that departs from the decided shape, or a decided shape that does not do what its entry says, is a full finding that names the entry. |
 | "The crate has a requirements directory, but I reviewed the API on its merits like any other Rust crate." | Then you measured it against a standard it does not answer to. Pass 7 exists because general-library instinct optimises for an unknown future population of callers, and a governed crate does not have one. |
 | "`#[non_exhaustive]` is just good practice for a published enum." | Not where a governing document enumerates the set exhaustively. There, a consumer failing to compile is the correct signal that the authority changed, and the attribute converts it into a `_ => {}` that absorbs the signal silently. Pass 7 asks which requirement asked for the enum to be open. |
 | "My remedy adds a little surface, but it makes the API more future-proof." | Future-proof against what? In a governed crate, name the requirement that wants the surface. A remedy justified by a requirement that does not exist is the same defect as the code it was meant to fix — and pass 7 deletes it rather than ranking it. |
