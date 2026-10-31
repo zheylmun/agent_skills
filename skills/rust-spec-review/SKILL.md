@@ -288,7 +288,8 @@ callers will build on ranks above a sentence one module will read. Rank a
 prose-rule finding by the shape it stands in for, never by the sentence, as
 that skill ranks a comment finding by the design fact behind it.
 
-A round's output is:
+A round's output, which goes to the orchestrator under The Loop and never
+straight to the user, is:
 
 - the ranked findings, as prose, each a paragraph a reader can follow
   without the spec open, with its pass and its spec section named;
@@ -300,6 +301,148 @@ A round's output is:
 
 Not a severity table, not a bulleted skeleton, and not ordered by the spec's
 section order.
+
+## The Loop
+
+This skill is an orchestrator. It does not review the spec itself; it runs
+rounds, sorts what each round returns, edits the spec, and stops when the
+spec has absorbed every structural fix it can.
+
+**Before round 1**, read the spec once. If it names no Rust shapes, the one
+paragraph under What A Round Reads is the whole response: no round runs, and
+nothing below applies.
+
+**Each round is a fresh subagent.** Dispatch a new one every round; never
+continue or message a previous round's reviewer. Its prompt carries only:
+
+- this file's absolute path, with the instruction to read What A Round
+  Reads, The Passes, and Findings and to return a round's output as Findings
+  describes it;
+- the absolute paths of the sibling skills listed under What A Round Reads,
+  to be read before the spec;
+- the spec's absolute path, and the paths of any existing crate modules the
+  spec touches.
+
+It never carries the previous round's findings, the orchestrator's sorting of
+them, or a summary of what changed. The `## Design decisions` section in the
+spec is the only memory that crosses rounds, and it is in the spec so the
+reviewer reads it as the author would have written it.
+
+**Sorting.** After each round, sort every finding into exactly one bin:
+
+| Bin | Rule | Effect on the spec | Reaches the user |
+|---|---|---|---|
+| **Adopted** | The reviewer named no ergonomic cost ("none I can name"), and no recorded decision covers it | The shape is rewritten in place; a one-line entry in the decisions section | No, beyond the diff |
+| **Adopted with a cost** | The reviewer named a real cost | The shape is rewritten in place, provisionally; the decisions section records both the cost and the obligation it retires | Yes, with both sides, so the user can flip it |
+| **Declined** | The remedy needs product knowledge the spec does not give, contradicts a recorded decision without breaking a goal, or is about something the spec left to the builder | Nothing changes in the body; the decisions section records the finding and why it was declined | Yes, so the user can overrule |
+
+There is no fourth bin and no unsorted finding. A finding you cannot sort is
+declined with the reason "could not sort", which puts it in front of the
+user. A finding already covered by an entry in `## Design decisions` gets no
+new entry. Only findings are sorted: a remedy a round's pass 8 deleted, and
+the round's closing out-of-scope paragraph, are not findings and get no bin.
+
+**Oscillation guard.** A finding that would reverse an adopted entry (restore
+a shape an earlier round retired, or retire one it introduced) is declined
+with the reason "reverses round N", naming that entry's round. The loop never
+undoes its own adoption; only the user does.
+
+**Editing the spec.** Make each adopted change in the spec's own voice and at
+its own altitude. Change the shape the finding names and the sentences that
+described the obligation it retires. When the new shape makes a prose rule
+unnecessary, delete the sentence: do not soften it, qualify it, or leave it
+beside the shape that replaced it. Do not restyle unrelated prose, and add no
+commentary to the body ("changed in review", "previously"): the history is
+the decisions section and the diff. A "Left to the builder" entry is never
+promoted into a decision, and an "Open with the user" question is never
+answered by the loop. Do not commit; the user commits the revised spec with
+the plan.
+
+**The decisions section.** The heading is `## Design decisions`. If it is
+absent, add it before "Left to the builder" and "Open with the user" when
+those exist, otherwise at the end. A section the author wrote under another
+heading (a "Decisions" section, say) stays where it is, unedited; rounds read
+it as the author's decisions. Append one entry per sorted finding, in this
+form:
+
+- a bold bin name with the round in parentheses: `**Adopted (round N).**`,
+  `**Adopted with a cost (round N).**`, or `**Declined (round N).**`;
+- one sentence: for an adopted entry, the shape now in the spec; for a
+  declined one, the finding;
+- for **Adopted with a cost**, `Cost:` and the cost the reviewer named;
+- for an adopted entry, `Retires:` and the obligation the caller no longer
+  carries;
+- for **Declined**, `Reason:` and why.
+
+> - **Adopted (round 1).** A sensor reading is an enum of a value or a fault
+>   code, never a value with an optional fault beside it. Retires: the "a
+>   reading with a fault ignores its value" rule.
+> - **Adopted with a cost (round 2).** `Celsius` and `Millivolts` are
+>   newtypes. Cost: every caller that forwards a raw sample converts at the
+>   boundary. Retires: a voltage passed where a temperature was meant, which
+>   the calibration table would otherwise accept.
+> - **Declined (round 2).** Typestate over `Driver` for open, configure, and
+>   stream. Reason: the three calls are made from different owners at
+>   different times and the spec does not say one value holds the bus; needs
+>   the user.
+
+**Convergence.** The loop stops when every finding a round returns is
+already covered by an entry, or when a round finds nothing. A round that adds
+entries is never the last, because nothing has yet read the spec it left, so
+a spec with findings takes at least two rounds. The cap is five rounds per
+invocation. If round five still returns a finding the decisions section does
+not cover, sort it, stop, and report that the loop **did not converge**: the
+spec is oscillating, and round five is not presented as converged.
+
+**Resume.** If the spec already has a `## Design decisions` section, read it
+and append to it. Do not start a second section and do not rewrite earlier
+entries. Number rounds from the highest round already recorded: a spec whose
+last entry is round 2 starts this invocation at round 3.
+
+**Without a subagent tool**, run each round yourself. Before each round,
+re-read the spec from disk and the sibling skills, and work the passes from
+the file alone, not from what you remember of the previous round. Say in the
+message's first line that rounds were not independent.
+
+## What The User Receives
+
+One message, after the loop converges or hits the cap, with four parts in
+this order:
+
+1. **One line:** rounds run (by number), findings adopted, items awaiting
+   the user, and whether the loop converged or did not converge at the cap;
+   and, under the fallback, that rounds were not independent.
+2. **The Adopted with a cost items**, most consequential first by the
+   ranking under Output in
+   [rust-design-review](../rust-design-review/SKILL.md), each as the shape
+   now in the spec, its cost, and what it retires. The question "keep or
+   flip" is implied; do not ask it per item.
+3. **The Declined items**, in the same order, each with its reason.
+4. **One line** pointing at the spec's diff for the adopted bin.
+
+Nothing else: no per-round narrative, no list of the plain Adopted items
+beyond the diff, no restatement of the spec, no out-of-scope asides. Parts 2
+and 3 carry only this invocation's entries. When a part is empty, say so in
+a clause ("nothing awaits a keep-or-flip"). When the first round finds
+nothing new, the first line says the spec was already converged.
+
+## Applying The Answers
+
+When the user replies, apply each answer to the spec in the same
+conversation, without re-running the loop:
+
+- **Keep** an Adopted with a cost item: nothing changes.
+- **Flip** one: restore the prior shape in the body, and the sentences the
+  change deleted, and rewrite its entry as `**Declined (round N).**` with the
+  user's reason.
+- **Overrule** a declined item: adopt it, rewriting the shape and the entry
+  as you would have between rounds.
+- **A new design** (neither keep nor flip): apply it as the user states it,
+  and rewrite the entry as `**Adopted (round N).**` stating the user's shape,
+  with `Reason:` recording it as the user's decision.
+
+Then this skill is done. The next step is the implementation plan
+(`superpowers:writing-plans`, where that plugin is installed).
 
 ## Out Of Scope
 
@@ -333,3 +476,11 @@ skill's soundness and security carve-out applies here unchanged.
 | "This newtype costs nothing." | A newtype costs a conversion at every call site that forwards the value, and principle 5 says that is real. Name the cost; "none I can name" is for changes such as an enum over two `Option`s, where it is true. |
 | "I'll write out the corrected types so the finding is concrete." | The change is to the spec, at the spec's altitude. Name the shape and what it retires; a type definition in a finding is the plan's work done early. |
 | "I found a gap in the requirements, so I led with it." | Requirement completeness is out of scope. It goes in the one closing paragraph, after the last finding. |
+| "The fix was clearly right, so I absorbed the cost silently." | A cost the reviewer named and the loop absorbed without recording is the one outcome worse than not running the skill. It is Adopted with a cost: the entry names the cost, and the user sees it. |
+| "Round three disagrees with round one, so I'll go with round three." | A later round is not a better authority. A finding that would reverse an adopted entry is Declined with "reverses round N" and goes to the user; the loop never undoes its own adoption. |
+| "Five rounds ran, so it converged." | Convergence is a round whose findings are all covered, or a round that finds nothing. Round five with an uncovered finding is the cap, and the message says the loop did not converge. |
+| "I'll summarise each round for the user." | The user gets one message in four parts. Per-round narrative is the noise the loop exists to absorb; the diff and the decisions section are the history. |
+| "The subagent can't see the skills, so I'll paraphrase them in the prompt." | Hand it the absolute paths and tell it to read them. A paraphrase is a second copy of the standard, and it drifts. |
+| "The spec already has decisions, so I'll start a fresh section." | Read the existing `## Design decisions` section and append to it, numbering rounds from its highest. A second section splits the only memory the rounds share. |
+| "I'll give round two the round-one findings so it doesn't repeat them." | Then round two reviews round one, not the spec. The decisions section is the only memory across rounds; a covered finding is caught by sorting, not by priming. |
+| "The new shape makes the rule redundant, but I'll keep a softer version of the sentence." | Delete it. A softened sentence beside the shape that replaced it tells the next round the shape does not hold the rule. |
