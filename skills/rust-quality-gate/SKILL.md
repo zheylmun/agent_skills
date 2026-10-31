@@ -241,6 +241,37 @@ Per command, in the *ran* state:
   Either way the fix is the same and belongs in CI, where drift never
   accumulates far enough to need attributing. If `cargo fmt --check`
   isn't in the crate's CI, that absence is worth one clause.
+
+  **`cargo fmt --check` passing does not mean the crate is within its declared
+  width.** rustfmt wraps code and leaves comments alone — `wrap_comments` is
+  nightly-only — so on a stable toolchain a doc comment of any length passes.
+  On a crate that declares `max_width` in `rustfmt.toml`, check the comments
+  yourself, reading the limit from the file rather than assuming rustfmt's
+  default of 100:
+
+  ```sh
+  python3 -c 'import re,sys,pathlib
+  cfg = pathlib.Path("rustfmt.toml")
+  m = re.search(r"^\s*max_width\s*=\s*(\d+)", cfg.read_text(), re.M) if cfg.is_file() else None
+  lim = int(m.group(1)) if m else 100
+  for p in sys.argv[1:]:
+      for n, line in enumerate(pathlib.Path(p).read_text().splitlines(), 1):
+          if len(line) > lim: print(f"{p}:{n}: {len(line)} cols, limit {lim}")' \
+    $(git ls-files '*.rs')
+  ```
+
+  Use `python3` and not `awk` here: `awk`'s `length` counts **bytes** on BSD
+  awk and in a C locale, so one em dash in a doc comment inflates the count by
+  two and a line that fits gets reported as over. A width check that
+  miscounts the very prose it exists to measure is worse than none.
+
+  Report what it finds as its own line, distinct from drift: these are lines
+  `cargo fmt` will not fix, so "run `cargo fmt`" is not the remedy. If the
+  crate declares no `max_width`, there is no limit to hold it to and this is
+  not an observation. If it declares one and nothing in CI enforces it on
+  comments, that absence is worth the same clause as a missing `fmt` check —
+  a declared limit nothing checks is one the author is being asked to hold by
+  eye.
 - **`cargo clippy ... -W clippy::pedantic`** — clean, the clusters (below),
   or — the common case on a mature crate — a handful of isolated hits that
   share no cause, reported as the one-sentence observations they are rather
@@ -340,5 +371,6 @@ present the remaining commands' output as if it were the whole suite.
 | "The crate wouldn't build, so I added a toolchain pin like `cargo +1.90.0 clippy` to get past it." | A command-line pin overrides the crate's `rust-toolchain.toml` and looks for the target's `rust-std` under the pinned toolchain instead, which is how a working embedded crate starts failing with `can't find crate for \`core\``. Run unpinned and let the crate's toolchain file decide; a toolchain-level failure is reported as tooling absent, not as an observation. |
 | "The host build of this `cortex-m-rt` crate fails, so clippy and the tests are findings." | That is the wrong target, not a fact about the crate. The target flag applies to the whole suite; a command that still cannot run is reported as **not applicable on this target**, which is a distinct state from both clean and failed. |
 | "`--all-features` fails to compile, so the feature design is broken." | On a crate with mutually exclusive chip-select features, `--all-features` failing is the feature design working. Bound the run — `--mutually-exclusive-features`, `--group-features`, `--exclude-features`, `--depth` — and report which selection you ran. |
+| "`cargo fmt --check` passed, so the crate is within its declared width." | Only its code is. rustfmt does not wrap comments on stable, so a doc comment of any length passes. Check comment width separately against the `max_width` the crate declares — see the `cargo fmt` entry under Reporting. |
 | "I ran the suite at the workspace root, so every crate is covered." | Only `cargo fmt` is. Clippy, tests, `cargo hack`, and `cargo doc` cover default members only, silently. Pass `--workspace`, or say which members the report actually covers. |
 | "`cargo test` exited 0, so that command is clean." | Exit 0 with zero tests run is not clean — the crate has never been exercised. Report "no tests exist" as its own observation, the same as a failing test would be. |

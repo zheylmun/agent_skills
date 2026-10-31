@@ -17,7 +17,9 @@ move on. The criteria for the docs and error passes belong to
 respelled here.
 
 The question behind every finding is the same one: **what does a caller have
-to hold in their head that a better type would have held for them?**
+to hold in their head that a better type would have held for them?** Where the
+crate answers to a requirement set or a standard, pass 7 adds a second: **what
+requirement justifies this?**
 
 ## Before You Read Any Code
 
@@ -93,9 +95,10 @@ of the review.
 
 ## Review Order
 
-Work these six passes in order. The order is deliberate: each pass narrows
+Work these seven passes in order. The order is deliberate: each pass narrows
 what the next one can still be surprised by, and the first pass is the one
-that most often produces the leading finding.
+that most often produces the leading finding. Pass 7 runs last because it
+audits the other six — including the remedies they proposed.
 
 ### 1. Public surface
 
@@ -230,6 +233,65 @@ finding cannot fill in parts 2 and 3, it is a restatement of the gate's
 evidence regardless of the words it uses.** Use the `#[allow]` screen to throw
 out the obvious cases fast; use the three-part shape to decide.
 
+### 7. Governing authority
+
+*What requirement justifies this — and what justifies the remedy I just
+proposed?*
+
+Run this pass when the crate answers to something outside itself: a
+requirement set, a protocol standard, a safety case, a wire format someone
+else owns. The signs are a `docs/requirements/` tree, doc comments citing
+requirement IDs, a standard named in the crate root, traceability tooling in
+CI. If nothing governs the crate, say so in a clause — "no external authority
+governs this crate, so pass 7 is not applicable" — and move on. Saying it is
+how a reader knows the pass ran.
+
+Where an authority does govern, general Rust-library instinct stops being the
+standard and becomes a source of error, because it optimises for an unknown
+future population of callers and a governed crate does not have one. Work both
+directions:
+
+- **Surface the authority does not ask for.** An extensibility hook, a
+  defaulted parameter, a configuration knob, a variant, a trait — anything no
+  requirement names. Speculative generality is ordinarily a matter of taste;
+  here it is unjustified surface, and it is unjustified in a form a reviewer
+  can check.
+- **Your own remedies, from passes 1 through 6.** Every change you are about
+  to recommend must cite the thing that wants it. This is the direction that
+  gets skipped, because a remedy arrives feeling like an improvement rather
+  than like a claim — and a remedy justified by a requirement that does not
+  exist is the same defect as the code it was meant to fix.
+
+**In a governed crate, a breaking change is information.** It tells every
+consumer that the authority changed and their handling needs revisiting. A
+hedge that suppresses the break — an enum left open where the governing
+document enumerates the set exhaustively, a default that absorbs a new
+mandatory value, a wildcard-friendly shape — converts a loud signal into a
+silent one. That is drift, and the fact that the mechanism is idiomatic Rust
+does not make it less so.
+
+The screen for this pass is one line:
+
+> Name the requirement. Then open it and read it.
+
+A citation that *resolves* is not a citation that *supports*. Traceability
+tooling checks that an identifier exists, never that its text says what the
+code claims for it, so a wrong-but-resolving citation is invisible to every
+automated check the crate has — and is exactly the kind of thing a reviewer
+who reads the body catches in one minute. When a doc comment says a variant
+is "reported by REQ-123", open REQ-123 and confirm it mentions that variant at
+all.
+
+Two things are **not** findings here. A decision the authority is silent on
+but the language forces — some representation has to be chosen — is the
+crate's to make. And the authority's own choices, however odd, are not this
+review's to relitigate.
+
+This pass is the one that can *remove* findings rather than add them: a
+remedy from an earlier pass that cannot name its requirement is deleted, not
+ranked. What it adds ranks like anything else, and usually ranks high, because
+unjustified public surface affects every caller and is breaking to retire.
+
 ## Output
 
 Prose, at design altitude, **most significant finding first**.
@@ -291,11 +353,11 @@ heading: each one is a paragraph a reader can follow without the source open.
 A short review of three real findings is worth more than a complete inventory
 of fifteen. Read that as a floor and a standard, never as a cap: it licenses
 you to drop the nits, not to drop a finding you owe. **A mandated carry-in is
-never dropped to keep the review short** — every one of the six passes is run,
+never dropped to keep the review short** — every one of the seven passes is run,
 every gate outcome lands somewhere (next paragraph), and a pass-4 comment
 standing in for a missing type is a mandated carry-in exactly as a vacuous
 gate outcome is. If honest work
-through the six passes yields seven findings, write seven. If the crate's
+through the seven passes yields eight findings, write eight. If the crate's
 design is sound, say so in a paragraph and stop.
 
 **All five of the gate's commands land somewhere in your review.** The gate
@@ -357,4 +419,8 @@ serious.
 | "The comments were fine — they explained the tricky parts well." | Principle 4 says a comment explaining a tricky part is evidence the part should not have been tricky. Pass 4 asks what the comment is standing in for; a well-written comment carrying an invariant the types could hold is a clearer finding, not an excused one. |
 | "The only thing pass 4 found was a comment, and a comment is a nit, so I cut it for length." | The comment is not the finding — the unenforced invariant behind it is, and that ranks by its cost to callers like anything else. See the comment rule under Output. |
 | "The PR was twenty lines, so I audited the whole crate's public surface while I was in there." | Change-scoped mode exists for this. Scope the findings to the surface the change touches and note crate-wide gate evidence once, in a sentence. An unrequested full-crate audit is how this review stops getting invoked. |
+| "The crate has a requirements directory, but I reviewed the API on its merits like any other Rust crate." | Then you measured it against a standard it does not answer to. Pass 7 exists because general-library instinct optimises for an unknown future population of callers, and a governed crate does not have one. |
+| "`#[non_exhaustive]` is just good practice for a published enum." | Not where a governing document enumerates the set exhaustively. There, a consumer failing to compile is the correct signal that the authority changed, and the attribute converts it into a `_ => {}` that absorbs the signal silently. Pass 7 asks which requirement asked for the enum to be open. |
+| "My remedy adds a little surface, but it makes the API more future-proof." | Future-proof against what? In a governed crate, name the requirement that wants the surface. A remedy justified by a requirement that does not exist is the same defect as the code it was meant to fix — and pass 7 deletes it rather than ranking it. |
+| "The doc comment cites a requirement ID, so that claim is traced." | Traceability tooling checks that the identifier exists, never that its text supports the claim. Open it and read it; a wrong-but-resolving citation passes every automated check the crate has. |
 | "There were forty things wrong, so the review is forty items." | Forty symptoms are rarely forty designs. Group by cause until each remaining item is a distinct design fact, then order those by significance. |
