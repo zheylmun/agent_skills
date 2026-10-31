@@ -18,6 +18,10 @@ discipline, and documentation rather than low-level mechanics.
 - **rust-design-review** — a design review (not a bug hunt) covering public
   surface, error design, docs, and cognitive load, using `rust-quality-gate`
   output as evidence.
+- **rust-spec-review** — runs the design review against a spec before any
+  code exists, loops fresh reviewers until it converges, records the
+  ergonomics-versus-correctness decisions in the spec's `## Design decisions`
+  section, and has a plan mode that checks a written plan against them.
 - **rust-embedded** — a thin overlay of `#![no_std]`/embedded-specific
   deltas, invoked alongside the other skills when an embedded target is
   detected.
@@ -63,6 +67,12 @@ flaws (a nine-parameter function, four of them bools, a `pub` field beside a
 validating constructor, `Box<dyn Error>`, undocumented public items, no
 tests) used as a fixture for `rust-quality-gate` and `rust-design-review`.
 
+`tests/fixtures/enrolment_spec.md`, `enrolment_contract.md`,
+`enrolment_spec_reviewed.md`, and `enrolment_plan.md` are the markdown
+fixtures for `rust-spec-review`: a spec, its contract, the spec after review,
+and a plan written from it. They are specs and plans, not crates, and follow
+the same never-improve rule as `sensor_kit`: they keep their seeded flaws.
+
 `tests/scenarios/*.md` are RED/GREEN prompts: each one is a task handed to a
 fresh agent first with no skill loaded (RED, showing the failure a skill is
 meant to catch) and then with the relevant `SKILL.md` loaded ahead of the
@@ -70,7 +80,9 @@ same prompt (GREEN). Files differ on whether they also carry the transcript:
 `principles-baseline.md`, `api-design-baseline.md`, and `end-to-end.md`
 record the full run; `quality-gate-baseline.md`, `design-review-baseline.md`,
 and `embedded-baseline.md` record the prompt only, with the transcript kept
-in that task's report instead. The newer, prompt-only style is the intended
+in that task's report instead. `spec-review-baseline.md`,
+`spec-review-plan-mode.md`, and `design-review-decisions.md` are prompt-only
+too. The newer, prompt-only style is the intended
 convention going forward — it keeps a scenario file a stable regression
 fixture rather than a snapshot of one run — but the existing full-transcript
 files were left as they are rather than rewritten. To re-run one: dispatch a
