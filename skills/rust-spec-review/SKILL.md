@@ -120,8 +120,8 @@ Design in [rust-api-design](../rust-api-design/SKILL.md). Ask first which
 failures a better argument type deletes. Then ask whether the spec has
 collapsed an error into an absence ("a corrupt item is treated as no key"),
 which hands the caller a recovery it never chose and hides the failure from
-everything above it, or folded a non-failure into an error the caller must
-match past.
+everything above it, or a success into an error code the caller must
+string-match.
 
 ### 4. Boundaries
 
@@ -131,9 +131,8 @@ rule is the prose carrying that structure could carry instead?*
 Ownership, concurrency, and persistence. Who owns each piece of state the
 spec names, and is it owned in one place? Which sentences describe a lock
 discipline ("the mutex is never held across a network call") or a write
-discipline ("every write re-checks the record still names the id") that a
-shape could carry: a guard that cannot cross the call, a write that takes
-the id it is guarded by? Which persisted or wire shape admits values the
+discipline ("every write re-checks the record still names the id") that
+structure could carry instead? Which persisted or wire shape admits values the
 in-memory type refuses, so that a load path needs a validation the spec
 forgot to describe?
 
@@ -151,18 +150,17 @@ Read every sentence of the form "must", "never", "always", "exactly one",
 Each is a candidate. Ask the pass's question: **if the design were right,
 would this sentence need to exist?** The sentence is never the finding; the
 shape it is covering for is. A sentence that names a type the rest of the
-spec does not use (a newtype in prose beside a `&str` in the signature) is
-evidence twice over: the author reached for the shape and the surface did
-not follow.
+spec does not use is evidence twice over: the author reached for the shape
+and the surface did not follow.
 
 Passes 2 to 4 each name sentence shapes of their own: the tie-break rule,
 the error "treated as" an absence, the lock or write discipline. Those stay
-with their passes. This pass owns the rest, most often a guarantee ("so a
-stale reply is never applied", "it is safe to") kept by a remembered side
-value or by every handler remembering one check. Such a finding is this
-pass's even though the shape it covers is a state or a field; filing it
-under an earlier pass is how this pass ends up reporting nothing while the
-spec is full of rules. If it finds nothing, say
+with their passes. Every other candidate sentence belongs to this pass,
+even when the shape it covers for is a state or a field an earlier pass also
+read: a config loader's "a reader never sees a half-applied reload", or a
+serial driver's "it is safe to call `send` from the interrupt handler".
+Filing such a finding under an earlier pass is how this pass ends up
+reporting nothing while the spec is full of rules. If it finds nothing, say
 so in a clause, "no sentence in the spec is standing in for a missing
 shape", because that is the only way a reader knows it ran.
 
@@ -172,13 +170,12 @@ shape", because that is the only way a reader knows it ran.
 
 Read the spec's stated decisions: its decisions section, and any sentence of
 the form "my call", "decided", or "the user asked for". A purpose clause
-attached to a shape in the body ("behind a trait, so the core stays
-portable", "left open so new cases do not break callers") is not a
-decision. It is the author's intent, and the other passes review whether the
-shape is what that intent needs. A decision covers a finding only when its
-reason answers the finding: it says why this shape and not the one the
-finding proposes. A reason that a different shape would serve equally well
-covers nothing.
+attached to a shape in the body ("the allocator takes its arena as a
+parameter so the pool can be sized per caller") is not a decision. It is the
+author's intent, and the other passes review whether the shape is what that
+intent needs. A decision covers the question it decides and no other: a
+decision about how a config file is versioned does not cover a finding about
+which struct owns the loaded values.
 
 For each finding from passes 1 to 5, and for each finding you were about to
 write, check whether a recorded decision already covers it. If one does, the
@@ -195,9 +192,10 @@ neither should have been raised: do not propose a shape for something the
 spec deliberately left unshaped.
 
 Say in a clause which decisions this pass read and what each one covered,
-including the ones that covered a finding nobody wrote. "The `X` decision
-covers the trait-over-typestate choice; no goal breaks" is the evidence that
-the decision was read rather than missed.
+including the ones that covered a finding nobody wrote. "The decision to
+retry in the serial driver rather than in its callers covers the
+retry-placement question; no goal breaks" is the evidence that the decision
+was read rather than missed.
 
 ### 7. Cognitive load
 
@@ -209,12 +207,11 @@ correct call against the described surface. Look for an abstraction the spec
 proposes that relocates complexity rather than removing it: a trait with one
 described implementor, a generic parameter the spec never varies, a builder
 over three fields. By [rust-principles](../rust-principles/SKILL.md) that is
-relocation, not reduction, and "so a later caller can supply their own" is
-an imagined second case, not a real one. A trait whose second implementor is
-real, and named, is not this finding. Nor is a goal the trait is said to
-serve a defence of it when a concrete shape serves the same goal: keeping a
-dependency out of a crate is a reason to keep the call out of the crate, not
-a reason for a trait.
+relocation, not reduction, and a second implementor the spec imagines is not
+a second case. A trait whose second implementor is real, and named, is not
+this finding. The purpose the spec gives an abstraction is weighed like any
+other claim: ask whether that purpose needs the abstraction, or whether a
+concrete shape would meet it.
 
 ### 8. Governing authority
 
@@ -234,8 +231,8 @@ pass does:
 
 - **Shapes the spec proposes that the authority does not ask for, or that
   hedge a signal it wants loud.** An open enum over a set the authority
-  enumerates exhaustively, a default that absorbs a new mandatory field, a
-  catch-all variant for outcomes the authority says cannot occur. Quote the
+  enumerates exhaustively, a default that absorbs a new mandatory field.
+  Quote the
   authority's sentence that settles it. General-library guidance such as the
   `#[non_exhaustive]` row in [rust-api-design](../rust-api-design/SKILL.md)'s
   Surface Hygiene is the instinct this pass exists to check: where the
@@ -257,8 +254,8 @@ Each finding names four things, in this order:
    silently get wrong under the shape as specified.
 3. **The change that retires it**, stated as a change to the spec, naming
    what the caller stops thinking about. Say it in prose at the spec's
-   altitude: name the shape (an enum over the record's states, a newtype
-   for one kind of id) and the sentences it lets the spec delete. Do not
+   altitude: name the shape (an enum over a link's states, a newtype for
+   one unit of measure) and the sentences it lets the spec delete. Do not
    write the code. A type definition or an `impl` in a finding is the
    builder's work done early, and the spec does not need it to change.
 4. **The ergonomic cost of that change**, named concretely or stated as
@@ -276,13 +273,13 @@ earliest whose question the finding answers, including the sentence shapes
 passes 2 to 4 name as theirs, with two exceptions: a finding the
 authority's text settles is pass 8's, and a prose rule no earlier pass names
 is pass 5's. A sentence that is evidence for a finding does not move it to
-pass 5: a newtype named in prose beside a `&str` in a signature is evidence
-for pass 1's finding about that value.
+pass 5: when a prose rule only corroborates a surface finding, the finding
+stays with the surface pass.
 
-One finding is one design fact with one remedy. Two facts about one type (an
-enum left open against a closed set, and a non-failure folded into the same
-enum) are two findings, because the spec's author may adopt one and decline
-the other.
+One finding is one design fact with one remedy. Two facts about one type (a
+config struct whose `pub` field bypasses a validation rule, and whose
+defaults absorb a missing mandatory key) are two findings, because the
+spec's author may adopt one and decline the other.
 
 Rank by the three criteria under Output in
 [rust-design-review](../rust-design-review/SKILL.md), most significant first.
@@ -330,7 +327,7 @@ skill's soundness and security carve-out applies here unchanged.
 | "The spec says it in prose, so the design handles it." | A sentence that states a rule is the evidence that no shape holds it. Pass 5 asks whether the sentence would need to exist if the design were right; the shape it covers for is the finding. |
 | "That's a product decision, I'll leave it." | Only if the spec says so with a reason. A shape the author chose without stating why is a shape, and passes 1 to 5 review it. Pass 6 drops findings for recorded decisions, not for decisions you imagined. |
 | "That decision is wrong, so I'll raise it anyway." | A decision with a stated reason is an authority, not a finding. Pass 6 drops the finding unless you can name the stated goal or anti-goal the decision makes unreachable. Preferring a different shape is not that. |
-| "I'll suggest a timer type for the tick." | The spec left it to the builder. A "Left to the builder" entry is never a finding's subject; proposing its shape reviews a decision the spec deliberately did not make. |
+| "The spec leaves that shape to the builder, but it is underspecified, so I'll propose one." | Underspecified is what "Left to the builder" means. An entry on that list is never a finding's subject; proposing its shape reviews a decision the spec deliberately did not make. |
 | "`#[non_exhaustive]` is good practice on a public error enum." | Not where the governing contract enumerates the set and calls it closed. There the attribute turns the contract's version change into a silent wildcard arm. Pass 8 quotes the contract's sentence and asks what wants the enum open. |
 | "The spec is thin, so I'll propose the surface and review that." | Then you are reviewing your own draft. A spec with no Rust shapes gets one paragraph saying so, and the review stops. A thin spec with some shapes is reviewed on the shapes it names. |
 | "This newtype costs nothing." | A newtype costs a conversion at every call site that forwards the value, and principle 5 says that is real. Name the cost; "none I can name" is for changes such as an enum over two `Option`s, where it is true. |
