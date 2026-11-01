@@ -45,15 +45,15 @@ sense: a pre-existing problem the branch does not touch is not a finding.
 Find the base before cycle 1, in this order:
 
 1. A base the user named.
-2. `main`, when the repository has one.
-3. The upstream's `main` (`origin/main`, or `upstream/main` in a fork), when
-   there is no local `main`.
+2. A local `main`.
+3. `origin/HEAD`, the remote's default branch
+   (`git symbolic-ref refs/remotes/origin/HEAD`), when it is set.
+4. Otherwise, ask the user and wait.
 
-When none of these exists, or two disagree about where the branch forked,
-ask the user and wait. Do not infer a base from a branch called `trunk`,
-`develop` or `master`: the repository has a convention this skill cannot
-see, and a wrong base turns every review into a review of someone else's
-work. Record the merge base once; every stage's diff is
+Do not infer a base from a branch's name alone: a local `trunk` or
+`develop` with no `origin/HEAD` pointing at it is a convention this skill
+cannot see, and a wrong base turns every review into a review of someone
+else's work. Record the merge base once; every stage's diff is
 `git diff <merge-base>...HEAD`, which includes the loop's own commits.
 
 Non-Rust files in the diff (a frontend, a script, a workflow file) are not
@@ -124,36 +124,37 @@ separate question, answered by the baseline (Green And Commits).
 Sort every finding in the review. Take these steps in order; the first that
 matches is the finding's one disposition.
 
-1. **An aside.** A bug in the review's closing paragraph is handed to stage 2
+1. **Already on the trade-off list.** A fresh reviewer raises a pending
+   item again every cycle until the user decides it. A finding that matches
+   an item already listed, whatever step it would otherwise reach (a
+   repair, a goal-breaking finding, a departure listed as "could not be
+   applied green"), is that item: nothing is applied, nothing is added, and
+   it is not new (Stopping). This step comes first so a re-raised item is
+   never re-binned or re-attempted.
+2. **An aside.** A bug in the review's closing paragraph is handed to stage 2
    as a candidate, where the confirmation rule decides it like any other. So
    is a soundness or security point, whatever its length. Everything else
    there (performance, crate-wide gate evidence the review names once as
    pre-existing) goes in the notes and is not a finding.
-2. **Decided.** A finding the review reports in one line as decided in the
+3. **Decided.** A finding the review reports in one line as decided in the
    spec, with the entry quoted. Nothing to do.
-3. **A departure** (the code is not the shape a spec entry decided) is
+4. **A departure** (the code is not the shape a spec entry decided) is
    **Clear**: the code is changed to match the spec. The spec is the
    authority on what was decided, so the spec's text does not move.
-4. **A repair** (the decided shape does not do what its entry says, such as
+5. **A repair** (the decided shape does not do what its entry says, such as
    not retiring what its `Retires:` names) is **Questionable**: changing a
    decision is the user's call.
-5. **Goal-breaking.** A finding that names a recorded decision and the stated
+6. **Goal-breaking.** A finding that names a recorded decision and the stated
    goal or anti-goal it makes unreachable is **Questionable**. The loop never
    overrides a decision on its own judgement that the decision is wrong.
-6. **Already on the trade-off list.** A fresh reviewer raises a pending
-   trade-off again every cycle until the user decides it. Match it to the
-   item already listed; it is the same item, not a new one (Stopping).
 7. **Otherwise, by cost.** **Questionable** when any of these holds:
    - the remedy's ergonomic cost passes the cost screen under The Loop in
-     [rust-spec-review](../rust-spec-review/SKILL.md), read with that
-     paragraph's public-signature rule: a conversion or construction that
-     recurs at every caller of a public signature always counts, however
-     the reviewer describes it. A newtype for a value every caller of a
-     `pub fn` passes in is Questionable even when the review says "one
-     conversion in one place". A caller writing a variant where it used to
-     write two arguments is not that: it converts nothing it already
-     holds, so an enum over illegal combinations of arguments costs
-     nothing;
+     [rust-spec-review](../rust-spec-review/SKILL.md), its public-signature
+     rule included. A newtype for a value every caller of a `pub fn` passes
+     in is Questionable even when the review says "one conversion in one
+     place". A caller writing one variant where it wrote two arguments
+     converts nothing it already holds, so an enum over illegal
+     combinations of arguments costs nothing;
    - the remedy changes behaviour a user of the product could notice: a
      failure the end user used to never see, a default that changes what
      they get;
@@ -161,25 +162,24 @@ matches is the finding's one disposition.
      test suite for a crate whose suite has never run, a module the branch
      only calls into rewritten.
 
-   **Clear** otherwise: the remedy retires a caller obligation, or costs no
-   caller anything, and its cost fails the screen. The cost the review names
-   is a claim; this step is the decision. Findings that are not about a
-   caller obligation sort by the same test. A missing rustdoc contract, a
-   missing `#[must_use]`, or unrequested public surface no governing
-   authority asks for costs no caller anything, so it is Clear.
+   **Anything else is Clear.** The cost the review names is a claim; this
+   step is the decision. Findings that are not about a caller obligation
+   sort by the same test: a missing rustdoc contract, a missing
+   `#[must_use]`, or unrequested public surface no governing authority asks
+   for costs no caller anything, so it is Clear.
 
 **Clear findings are applied**, by the orchestrator, one at a time in the
 review's rank order, each green-checked and committed on its own. An enum
 of a user or a group, replacing a `pub` function's user id and group id of
 which exactly one may be set, retires the rule at no cost to any caller, so
 it is applied, and when the spec names that function its text changes in
-the same commit (Keeping The Spec True). **Questionable findings are not applied.** Each goes on the
-trade-off list with the change, its cost, and what it would retire, for the
-next break point.
+the same commit (Keeping The Spec True). **Questionable findings are not
+applied.** Each goes on the trade-off list with the change, its cost, and
+what it would retire, for the next break point.
 
-The sort is total. A finding you cannot place is Questionable, with "could
-not sort" as its cost, which puts it in front of the user. A finding that
-ends nowhere comes back next cycle and the loop cannot settle on it.
+The sort is total: step 7 bins whatever the first six did not, so every
+finding ends in exactly one place. A finding that ends nowhere comes back
+next cycle and the loop cannot settle on it.
 
 ### Stage 2: Correctness
 
@@ -192,23 +192,40 @@ branch, and stage 1's candidates as places to start, each stated as code to
 look at, never as a verdict. It returns, for each finding, either a test
 that fails in that worktree, with its file path, code and failure output, or
 a concrete trace: the inputs, each step through the code by file and
-function, and the wrong output. Remove the worktree afterwards.
+function, and the wrong output. Remove the worktree afterwards with
+`git worktree remove --force`.
 
-**A finding is confirmed only with evidence the orchestrator checks.**
+A finding that matches an item already on the trade-off list (a confirmed
+bug whose fix could not be applied green, say) is that item, as in stage
+1's first step: it is not re-confirmed or re-attempted, and it is not new.
 
-- **A failing test** is confirmed when the orchestrator adds it to the branch's
-  working tree, runs it, and sees it fail for the reason the finding states,
-  against an expectation the code's rustdoc or the spec actually makes. A
-  test that fails to compile, or asserts behaviour nothing promised, confirms
-  nothing.
+**A finding is confirmed only with evidence the orchestrator checks.** The
+standard a test must meet is the same however it was written: it asserts
+an expectation the code's rustdoc or the spec makes, or it shows a panic, a
+hang, or loss of data on some input, which is a violation whether or not
+anything promised otherwise.
+
+- **A failing test** is confirmed when the orchestrator adds it to the
+  branch's working tree, runs it, and sees it fail for the reason the
+  finding states, against that standard. A test that fails to compile,
+  asserts behaviour nothing promised, or passes, confirms nothing.
 - **A trace** is confirmed when the orchestrator reads the code along it and
   every step holds. Then the orchestrator writes the failing test the trace
-  describes. If no test it can write fails, the trace did not hold.
+  describes, to the same standard. If no test it can write fails, the trace
+  did not hold.
 
-**Unconfirmed findings are dropped and counted.** They are not argued, fixed
-"to be safe", or passed on as suspicions; the count reaches the break-point
-message. A confirmed finding is fixed, the fix kept to the bug, and its
-failing test is committed in the same commit as the fix.
+**Unconfirmed findings are dropped and counted**, and the working tree is
+restored to `HEAD` (Green And Commits) so the test that confirmed nothing
+leaves with them. They are not argued, fixed "to be safe", or passed on as
+suspicions; the count reaches the break-point message. The one exception is
+a soundness or security point (a data race no test can show, an unsound
+`unsafe` block): it is not reduced to a count but goes on the trade-off
+list marked unconfirmed and stated in full, as the soundness carve-out
+under Out Of Scope in [rust-design-review](../rust-design-review/SKILL.md)
+requires.
+
+**The orchestrator fixes each confirmed finding**, the fix kept to the bug,
+and commits its failing test in the same commit as the fix.
 
 The built-in `code-review` at `high` effort is an acceptable engine for this
 stage when it is available, run against the merge base without `--fix` or
@@ -218,13 +235,19 @@ user's to request.
 
 ### Stage 3: Simplify
 
-A fresh subagent runs the built-in `simplify` pass, over Rust files only. In
-cycle 1 it covers the whole branch diff, so the branch's own code is
-simplified at least once. In later cycles it covers only what that cycle
-changed: the diff from the commit the cycle started at to `HEAD`. It applies
-its own cleanups; the orchestrator green-checks and commits each one it
-names. Simplify's output never counts against a clean cycle (Stopping), so
-tidying cannot keep the loop alive.
+A fresh subagent runs the built-in `simplify` pass, over Rust files only, in
+a disposable worktree of `HEAD` as stage 2 does, so nothing it applies
+there touches the branch. In cycle 1 it covers the whole branch diff, so
+the branch's own code is simplified at least once. In later cycles it
+covers only what that cycle changed: the diff from the commit the cycle
+started at to `HEAD`. It reports each cleanup separately, as a sentence
+and its diff, and does not apply them to the branch.
+
+The orchestrator applies the cleanups one at a time, as in stage 1: each is
+green-checked and committed on its own. A cleanup that cannot be made green
+in two attempts is discarded and counted in the notes, never put on the
+trade-off list. Simplify's output never counts against a clean cycle
+(Stopping), so tidying cannot keep the loop alive.
 
 **When an engine is missing**, if `code-review` or `simplify` is not
 available, give a fresh subagent that stage's brief in plain words instead,
@@ -249,10 +272,13 @@ change could be checked green against it.
 
 **Every applied change is checked green before it is committed.** A change
 that is not green gets a second attempt. A change that cannot be made green
-in two attempts is discarded: restore the working tree to `HEAD`, which only
-loses that change, since everything before it was committed and the tree was
-clean at the start. Its finding goes on the trade-off list as "could not be
-applied green", and the loop carries on. A confirmed bug whose fix could not
+in two attempts is discarded: restore the working tree to `HEAD`, untracked
+files included (`git restore --staged --worktree .`, then `git clean -fd`).
+That loses only the change, since everything before it was committed and the
+tree was clean at the start, so every untracked file is the loop's own. Its
+finding goes on the trade-off list as "could not be applied green" (a
+simplify cleanup is only counted, as stage 3 says), and the loop carries
+on. A confirmed bug whose fix could not
 be made green is therefore never silently dropped; it reaches the user at
 the next break point.
 
@@ -295,7 +321,8 @@ a departure.
   counts them. One new round per break point: at the start of each batch the
   round is the highest recorded plus one, and every entry the batch writes,
   including those its break point's answers write (Applying The Answers),
-  carries that number. A later [rust-spec-review](../rust-spec-review/SKILL.md) run then resumes from it
+  carries that number. A later
+  [rust-spec-review](../rust-spec-review/SKILL.md) run then resumes from it
   intact.
 
 > - **Adopted (round 3).** `Mailer::send` takes a `Recipient` enum of a user
