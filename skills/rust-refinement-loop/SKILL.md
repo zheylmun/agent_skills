@@ -431,7 +431,14 @@ stops and gives the user one message, with four parts in this order:
    independent (Without a subagent tool); that the feature powerset could
    not run, so that part of green is unevidenced (Green And Commits); and,
    after a second batch in a row without a clean cycle, that and the
-   recommendation to stop.
+   recommendation to stop; and, when a fold is worth offering, an offer of
+   [rust-fold-history](../rust-fold-history/SKILL.md) with the counts that
+   triggered it, such as "14 fix-up commits against a 3-task plan; fold the
+   history?". A fold is worth offering when, since the last fold or the
+   branch's start, the fix-up commits number at least as many as the plan
+   has tasks, or 10 or more cycles have run, or the conversation is clearly
+   long (the model's judgement, since context size cannot be measured). When
+   none holds, the line says nothing about folding.
 2. **The trade-off list**, most consequential first by the ranking under
    Output in [rust-design-review](../rust-design-review/SKILL.md), each
    with the change, its cost, and what it would retire. A confirmed bug
@@ -499,11 +506,18 @@ Then:
 - **"Stop here"** ends the loop after the answers given are recorded. The
   undecided items stay in the notes, listed once more in the reply.
 
-At a break point the user may run the history skill to fold the loop's
-commits, or ask the loop to run it, before the next batch. The loop never
-runs it unasked, since folding rewrites history and that is the user's
-call. After it, the commit ids in the notes are stale: re-read the branch,
-keep the merge base, and check the tree is clean before the next cycle.
+At a break point the user may run [rust-fold-history](../rust-fold-history/SKILL.md)
+to fold the loop's commits, or ask the loop to run it, before the next
+batch. The loop applies and commits the user's answers first, so the fold
+includes them, then makes the offer in part 1. It never runs the skill
+unasked, since folding rewrites history and that is the user's call; the
+fold runs only on the user's yes. After it, the commit ids in the notes are
+stale: re-read the branch, keep the merge base, and check the tree is clean
+before the next cycle. On resuming after a compaction, read the handoff
+the skill wrote (`$(git rev-parse --git-dir)/fold-history/handoff.md`) for
+the batch and cycle count, the notes path, the undecided items and what the
+next batch starts with, and keep the green baseline already recorded rather
+than recording a new one.
 
 ## Common Mistakes
 
@@ -513,6 +527,7 @@ keep the merge base, and check the tree is clean before the next cycle.
 | "The newtype is obviously right, I applied it." | A newtype for a value every caller of a public signature passes costs a conversion at every one of those callers, and the cost screen in [rust-spec-review](../rust-spec-review/SKILL.md) counts that however the reviewer described it. It is Questionable and goes on the trade-off list; principle 5 of [rust-principles](../rust-principles/SKILL.md) leaves that call to the user. |
 | "The gate was red before I started, so I can't continue." | Green is "nothing new" for clippy, the docs build and the feature powerset, against the baseline recorded before cycle 1. Pre-existing clusters and a crate with no doc contract do not block; only what the loop's own change adds does. Failing tests or `fmt` before cycle 1 are the one case to stop and ask. |
 | "I committed and then ran the tests." | Green is checked before the commit. A red commit is in the history for good, because the loop never rewrites it; a change that is not green is retried once and then discarded uncommitted. |
+| "The branch is long, so I'll fold it before the next batch." | Offer it, with the counts, in the break-point line; the user decides. Folding rewrites history, which the loop never does on its own. |
 | "I squashed the fixes to keep history tidy." | The loop never rewrites history. One commit per change, each naming its finding and stage, is what the history skill folds when the user chooses to run it. |
 | "The code departs from the spec, so I updated the spec to match the code." | A departure is Clear the other way: the code changes to match the spec, because the spec is the authority on what was decided. Changing the decision is a repair, and a repair is Questionable, the user's call. |
 | "The spec entry still says the old shape, so the code departs; I changed the code back." | The change that altered that shape should have revised the entry in place (Keeping The Spec True; Applying The Answers). Revise it now, with `Revised by the user.` for an approved change or `Revised in round N.` for the loop's own, and never revert an approved change: a departure whose remedy restores a shape a later revision retired is Decided, not Clear. |
