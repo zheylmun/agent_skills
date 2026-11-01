@@ -86,7 +86,8 @@ drifts into design.
 break points then live only in the break-point message, and the message says
 so. The loop does not create a spec.
 
-**Before cycle 1**, the working tree must be clean, because discarding a
+**Before cycle 1**, the working tree must be clean, untracked files
+included (`git status --porcelain` is empty), because discarding a
 change that cannot be made green (Green And Commits) must not discard the
 user's work. If it is not clean, ask. Then record the baseline that green is
 measured against.
@@ -122,15 +123,20 @@ observations feed the review every cycle; whether they block a change is a
 separate question, answered by the baseline (Green And Commits).
 
 Sort every finding in the review. Take these steps in order; the first that
-matches is the finding's one disposition.
+matches is the finding's one disposition. A finding is sorted whole, by the
+change it proposes: a smaller fix the reviewer mentions alongside it is part
+of that finding, not a second one to apply while the first waits.
 
 1. **Already on the trade-off list.** A fresh reviewer raises a pending
    item again every cycle until the user decides it. A finding that matches
    an item already listed, whatever step it would otherwise reach (a
    repair, a goal-breaking finding, a departure listed as "could not be
    applied green"), is that item: nothing is applied, nothing is added, and
-   it is not new (Stopping). This step comes first so a re-raised item is
-   never re-binned or re-attempted.
+   it is not new (Stopping). A finding matches a listed item when it names
+   the same code and proposes the same change, however it is worded; a
+   different remedy at the same site, or the same remedy somewhere else, is
+   a new finding. This step comes first so a re-raised item is never
+   re-binned or re-attempted.
 2. **An aside.** A bug in the review's closing paragraph is handed to stage 2
    as a candidate, where the confirmation rule decides it like any other. So
    is a soundness or security point, whatever its length. Everything else
@@ -147,7 +153,14 @@ matches is the finding's one disposition.
 6. **Goal-breaking.** A finding that names a recorded decision and the stated
    goal or anti-goal it makes unreachable is **Questionable**. The loop never
    overrides a decision on its own judgement that the decision is wrong.
-7. **Otherwise, by cost.** **Questionable** when any of these holds:
+7. **Nothing a caller sees.** A finding whose change no caller of the
+   public surface could see or would need to know: the structure, names or
+   comments of private code, how private state is stored, a test to add, a
+   doc's wording, links or examples where its contract is already stated.
+   It goes in the notes and is not a finding. Private code is stage 3's,
+   tests that show a bug are stage 2's, and a design review that applies
+   tidying finds more tidying every cycle, so no cycle is ever clean.
+8. **Otherwise, by cost.** **Questionable** when any of these holds:
    - the remedy's ergonomic cost passes the cost screen under The Loop in
      [rust-spec-review](../rust-spec-review/SKILL.md), its public-signature
      rule included. A newtype for a value every caller of a `pub fn` passes
@@ -177,7 +190,7 @@ the same commit (Keeping The Spec True). **Questionable findings are not
 applied.** Each goes on the trade-off list with the change, its cost, and
 what it would retire, for the next break point.
 
-The sort is total: step 7 bins whatever the first six did not, so every
+The sort is total: step 8 bins whatever the first seven did not, so every
 finding ends in exactly one place. A finding that ends nowhere comes back
 next cycle and the loop cannot settle on it.
 
@@ -217,7 +230,8 @@ anything promised otherwise.
 **Unconfirmed findings are dropped and counted**, and the working tree is
 restored to `HEAD` (Green And Commits) so the test that confirmed nothing
 leaves with them. They are not argued, fixed "to be safe", or passed on as
-suspicions; the count reaches the break-point message. The one exception is
+suspicions; the count reaches the break-point message. A stage 1 candidate
+the reviewer comes back with nothing on is unconfirmed too, and counted. The one exception is
 a soundness or security point (a data race no test can show, an unsound
 `unsafe` block): it is not reduced to a count but goes on the trade-off
 list marked unconfirmed and stated in full, as the soundness carve-out
@@ -241,7 +255,8 @@ there touches the branch. In cycle 1 it covers the whole branch diff, so
 the branch's own code is simplified at least once. In later cycles it
 covers only what that cycle changed: the diff from the commit the cycle
 started at to `HEAD`. It reports each cleanup separately, as a sentence
-and its diff, and does not apply them to the branch.
+and its diff, and does not apply them to the branch. Remove its worktree afterwards with
+`git worktree remove --force`, as stage 2's is.
 
 The orchestrator applies the cleanups one at a time, as in stage 1: each is
 green-checked and committed on its own. A cleanup that cannot be made green
@@ -270,10 +285,15 @@ that adds one more undocumented `pub` item is. Tests and `fmt` have no
 baseline: if either fails before cycle 1, say which and ask, because no
 change could be checked green against it.
 
-**Every applied change is checked green before it is committed.** A change
+**Every applied change is checked green before it is committed.** Clippy
+and rustdoc exit zero on warnings, so their exit status says nothing about
+"nothing new": compare their output with the baseline, then commit, never
+in one chained command. A change
 that is not green gets a second attempt. A change that cannot be made green
 in two attempts is discarded: restore the working tree to `HEAD`, untracked
-files included (`git restore --staged --worktree .`, then `git clean -fd`).
+files included, from the repository root, so a crate in a subdirectory of
+a workspace leaves nothing behind (`git restore --staged --worktree :/`,
+then `git clean -fd :/`).
 That loses only the change, since everything before it was committed and the
 tree was clean at the start, so every untracked file is the loop's own. Its
 finding goes on the trade-off list as "could not be applied green" (a
@@ -334,6 +354,101 @@ changes are still made, and the orchestrator keeps, in its notes, the entry
 each would have been; every break-point message lists them, so the user can
 carry them into a spec.
 
+## Stopping
+
+**A cycle is clean** when stage 1 applies nothing and adds nothing new to
+the trade-off list, and stage 2 confirms nothing. Stage 3's cleanups do not
+count, applied or not. A finding stage 1 reports as decided, and a finding
+that matches an item already on the trade-off list (the sort's first step),
+are not new: a fresh reviewer raises a pending item again in every cycle
+until the user decides it, and a re-raised item cannot keep the loop alive.
+
+**Pending items live in the orchestrator's notes**, outside the repo, until
+the user decides them. They are not written into the spec, the plan, a
+commit, or a file in the branch: a pending item in the spec reads to the
+next reviewer as a decision, and to the user as one already taken.
+
+**The loop ends at the first clean cycle.** It does not run one more to be
+sure, and it does not end on a cycle that was not clean because the next
+looks likely to be.
+
+**There is no hard cap** beyond the break points. If two consecutive batches
+end without a clean cycle, the second break point's message says so
+plainly in its first line and recommends stopping: a branch that does not
+converge in ten cycles is telling the user something about its design, and
+another batch will not.
+
+## Break Points
+
+A break point comes after every fifth cycle of a batch, and when the loop
+ends. A clean fifth cycle is the end, not a pause. At a break point the loop
+stops and gives the user one message, with four parts in this order:
+
+1. **One line:** the cycles run in this batch, and whether the loop ended
+   clean or is pausing. The same line says, in a clause each, when it
+   applies: that the branch has no spec, so this message is the only record
+   of its decisions; which stage ran on a plain brief because its engine
+   was missing (When an engine is missing); that stages were not
+   independent (Without a subagent tool); and, after a second batch in a
+   row without a clean cycle, that and the recommendation to stop.
+2. **The trade-off list**, most consequential first by the ranking under
+   Output in [rust-design-review](../rust-design-review/SKILL.md), each
+   with the change, its cost, and what it would retire. A confirmed bug
+   whose fix could not be applied green says so and gives the failing test;
+   an unconfirmed soundness point says it is unconfirmed and is stated in
+   full. These are the items to decide.
+3. **What was applied**, in a short list grouped by stage (design,
+   correctness, simplify), one line each with its commit id. When the
+   branch has no spec, each change that would have added an entry carries
+   that entry beneath it, in the decisions-section format, as do the
+   answers to earlier break points, so the user can carry them into a spec.
+4. **What was dropped:** the count of unconfirmed correctness findings, the
+   count of cleanups discarded as not green, and the non-Rust files in the
+   diff, by path, left untouched.
+
+Nothing else: no per-cycle narrative, no findings the sort marked decided,
+no restatement of the spec, no question per item. The rounds' detail stays
+in the notes and is shown if the user asks. When a part is empty, say so in
+a clause ("nothing awaits a decision"). Then wait for the user.
+
+## Applying The Answers
+
+When the user replies, take each item they decided in turn:
+
+- **Approved**: apply the change as a Clear change is applied, checked
+  green and committed on its own, with the spec and plan text it alters in
+  the same commit (Keeping The Spec True), and an entry
+  **Adopted with a cost (round N).** whose `Cost:` is the cost the user
+  accepted and whose `Retires:` is what it retires. If it cannot be made
+  green in two attempts, discard it as Green And Commits says and tell the
+  user in one line; it is not recorded as adopted.
+- **Declined**: change no code, and add an entry
+  **Declined (round N).** stating the finding, with `Reason:` the user's
+  reason, committed on its own.
+
+N is the batch's round (Keeping The Spec True). With no spec, the entries
+go in the notes and every later break-point message carries them. An item
+the user does not decide stays on the list, and stage 1's first step still
+matches it.
+
+Then:
+
+- **If the loop paused**, the next batch of five starts, at a new round.
+- **If the loop had ended clean and the user approved a change**, the loop
+  runs again so that change is itself reviewed, and ends at the next clean
+  cycle. The cycle that applied nothing new does not make an approved
+  change reviewed.
+- **If the loop had ended clean and nothing was approved**, it is done once
+  the answers are committed.
+- **"Stop here"** ends the loop after the answers given are recorded. The
+  undecided items stay in the notes, listed once more in the reply.
+
+At a break point the user may run the history skill to fold the loop's
+commits, or ask the loop to run it, before the next batch. The loop never
+runs it unasked, since folding rewrites history and that is the user's
+call. After it, the commit ids in the notes are stale: re-read the branch,
+keep the merge base, and check the tree is clean before the next cycle.
+
 ## Common Mistakes
 
 | Rationalization | Correction |
@@ -344,3 +459,10 @@ carry them into a spec.
 | "I committed and then ran the tests." | Green is checked before the commit. A red commit is in the history for good, because the loop never rewrites it; a change that is not green is retried once and then discarded uncommitted. |
 | "I squashed the fixes to keep history tidy." | The loop never rewrites history. One commit per change, each naming its finding and stage, is what the history skill folds when the user chooses to run it. |
 | "The code departs from the spec, so I updated the spec to match the code." | A departure is Clear the other way: the code changes to match the spec, because the spec is the authority on what was decided. Changing the decision is a repair, and a repair is Questionable, the user's call. |
+| "The reviewer found a tidier way to hold the private state, so I applied it." | A stage 1 finding no caller could see is not a finding: private structure, comments, added tests and doc polish go in the notes. Stage 3 tidies private code once per cycle's changes; a design stage that applies tidying never runs dry. |
+| "The simplify pass changed something, so the cycle isn't clean." | Simplify never counts. A cycle is clean when stage 1 applies nothing and adds nothing new and stage 2 confirms nothing; if tidying counted, the loop would never settle. |
+| "The reviewer raised the newtype again, so it's a new item." | A finding that names the same code and proposes the same change as a listed item is that item. A fresh reviewer raises every pending item until the user decides it; counting it as new means no cycle is ever clean. |
+| "Five cycles ran, I'll keep going." | The fifth cycle of a batch is a break point. Stop, give the four-part message, and wait: the trade-offs are the user's, and five more cycles only re-raise them. |
+| "The user approved it, so the loop is done." | An approved change is new code no stage has reviewed. Apply it, record it as Adopted with a cost, and run the loop again until the next clean cycle. |
+| "I'll put the pending trade-offs in the spec so the next reviewer sees them." | Pending items stay in the orchestrator's notes. In the spec, the next reviewer reads them as decisions, and the user finds them already taken. Only the user's answer writes an entry. |
+| "I'll summarise each cycle for the user." | The break-point message has four parts and nothing else. Per-cycle detail stays in the notes, outside the repo, and is shown if the user asks. |
