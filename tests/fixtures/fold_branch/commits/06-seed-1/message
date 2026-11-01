@@ -1,0 +1,4 @@
+stats: take a SampleCount window in window_mean
+
+Stage 1 (design), cycle 1: a window of 0 was a usize every caller could
+pass and window_mean had to reject at run time. Retires: that check.

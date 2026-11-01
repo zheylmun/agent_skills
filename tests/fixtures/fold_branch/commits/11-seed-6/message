@@ -1,0 +1,5 @@
+Add drift detection over a SampleBuffer
+
+Stage 1 (design), cycle 2: the spec's intent is seeing whether a sensor
+is wandering, and every board compared latest() with stats::mean by hand
+to do it. Retires: that comparison in each board.

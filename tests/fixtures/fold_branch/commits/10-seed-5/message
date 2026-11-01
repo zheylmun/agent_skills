@@ -1,0 +1,4 @@
+spec: say what a zero-capacity buffer keeps
+
+Stage 2 (correctness), cycle 1: the push decision did not cover capacity
+0, which the fix to SampleBuffer::push now defines as keeping nothing.

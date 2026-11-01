@@ -1,0 +1,4 @@
+buffer: return the latest reading by value
+
+Stage 1 (design), cycle 1: latest returned Option<&f32>, so every caller
+dereferenced a Copy value it could have been handed. Retires: the borrow.

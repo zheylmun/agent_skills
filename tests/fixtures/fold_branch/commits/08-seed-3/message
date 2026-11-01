@@ -1,0 +1,6 @@
+buffer: keep nothing at capacity 0
+
+Stage 2 (correctness), cycle 1: SampleBuffer::new(0) kept one reading,
+since push compared an empty queue's length with 0 and pushed anyway, so
+Recorder::with_capacity(sensor, 0) held a value it was sized never to
+keep. Tests in buffer and recorder fail without the fix.

@@ -231,3 +231,69 @@ should do to it:
 
 With `--no-spec`, seeds 6 and 7 have no spec to measure against: the loop
 should run anyway and list what a spec would have recorded.
+
+## `fold_branch`
+
+The input to **rust-fold-history**, which folds a refined branch into one
+commit per plan task. `tests/fixtures/fold_branch/setup.sh <dir> [--dirty]
+[--remote]` builds a fresh git repo at `<dir>` (it refuses a non-empty one;
+no network). `main` is one commit holding a copy of `sensor_kit` without its
+`target/` or lockfile, plus a `.gitignore` for both. `feat/sensor-fold`,
+checked out at the end, adds 13 commits, one per directory under `commits/`
+in name order: the spec (`docs/superpowers/specs/fold-design.md`), a
+three-task superpowers plan (`docs/superpowers/plans/fold-plan.md`), the
+three task commits (`SampleBuffer` in `src/buffer.rs`, `mean` and
+`window_mean` in `src/stats.rs`, `Recorder` in `src/recorder.rs`, each with
+a `pub mod` line before a copy of `sensor_kit`'s `lib.rs`), then eight
+fix-ups with refinement-loop messages naming their stage and cycle. Each
+directory holds the commit's `message`, a `tree/` copied over the repo, and
+optionally `lib-mods`, the `pub mod` lines. Every commit passes `cargo test`
+and `cargo fmt --check` and builds all targets without a warning.
+
+- `--dirty` leaves one uncommitted edit to `src/buffer.rs`, a tracked file.
+- `--remote` adds a bare repo at `<dir>.remote.git` as `origin` and pushes
+  `main` and `feat/sensor-fold` with upstream set, so nothing a skill does
+  can reach a real remote, and a push would show in the bare repo.
+
+`tests/scenarios/fold-history-baseline.md` runs on a `--remote` build and
+`fold-history-dirty.md` on a `--dirty` one; the dirty run should rewrite
+nothing.
+
+The never-improve rule applies to everything under `fold_branch/`: do not
+merge a fix-up into its task, reword a message, or bring the plan up to
+date. The stale plan is what the skill rewrites.
+
+Seeded fix-ups, numbered as later tasks refer to them (commit 6 to 13 of the
+branch), each with where it belongs in the fold:
+
+1. `stats: take a SampleCount window in window_mean`: adds the newtype
+   `SampleCount` in `src/stats.rs`, used only by `window_mean`. Folds into
+   task 2; the rewritten plan names `SampleCount` in task 2.
+2. `buffer: return the latest reading by value`: `latest` changes from
+   `Option<&f32>` to `Option<f32>`. Folds into task 1; the plan's task 1
+   interface changes to match.
+3. `buffer: keep nothing at capacity 0`: one commit touching task 1's
+   `push` (and a buffer test) and task 3's tests (a zero-capacity
+   recorder). Split by hunk: `src/buffer.rs` into task 1, `src/recorder.rs`
+   into task 3.
+4. `spec: record the SampleCount window`: adds a `## Design decisions`
+   entry. Folds into the spec commit.
+5. `spec: say what a zero-capacity buffer keeps`: revises the first
+   `## Design decisions` entry. Folds into the spec commit.
+6. `Add drift detection over a SampleBuffer`: a logical step the plan lacks,
+   `src/drift.rs` with its own tests and a `pub mod drift;` line. It needs
+   `stats::mean` and the by-value `latest`, so it becomes its own task after
+   task 2 (after task 3 also builds).
+7. `buffer: default to the recorder's capacity`: `impl Default for
+   SampleBuffer` in `src/buffer.rs`, task 1's file, using
+   `recorder::DEFAULT_CAPACITY` from task 3. Folded into task 1 it fails to
+   build (`unresolved import crate::recorder`); it belongs in task 3's
+   commit, and the plan's task 3 gains it.
+8. `stats: sum the window with skip`: a simplify-stage tidy of
+   `window_mean`. Folds into task 2.
+
+The expected fold has 6 commits: the spec, the plan (rewritten to the
+refined design and committed before the fold), and four task commits in
+plan order (buffer, stats, drift, recorder, or drift last). A fold built
+this way was checked by hand: its final tree equals the original branch's
+and every commit is green.

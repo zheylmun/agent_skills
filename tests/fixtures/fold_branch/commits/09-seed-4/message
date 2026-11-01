@@ -1,0 +1,5 @@
+spec: record the SampleCount window
+
+Stage 1 (design), cycle 1: window_mean's window became a SampleCount; the
+decisions section did not say so, so the next review would read it as a
+departure.

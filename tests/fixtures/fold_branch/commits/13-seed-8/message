@@ -1,0 +1,4 @@
+stats: sum the window with skip
+
+Stage 3 (simplify), cycle 2: window_mean counted indices by hand to skip
+the older readings.

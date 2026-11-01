@@ -1,0 +1,5 @@
+buffer: default to the recorder's capacity
+
+Stage 1 (design), cycle 2: a board building a buffer beside a Recorder
+had to repeat its capacity by hand. Retires: the second copy of that
+number.
