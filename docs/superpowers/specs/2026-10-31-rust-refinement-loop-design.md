@@ -118,7 +118,14 @@ missing `#[must_use]`, unrequested public surface a governing authority does
 not ask for) is Clear and applied. A finding whose remedy is substantial new
 work beyond the branch's own change (a crate whose suite has never run needs a
 test suite written) is Questionable, so the user decides whether this branch
-takes it on. A bug `rust-design-review` mentions in its closing aside is
+takes it on; that check comes before the next one, so such work is never
+waved through as tidying. A tidying-sized change no caller can see (the
+naming or structure of private code the branch touched, a test for a line the
+branch changed, the wording of a private item's doc) is not a finding at all:
+it goes in the orchestrator's notes. Private code is stage 3's to tidy and a
+test that shows a bug is stage 2's, and a design review that applies tidying
+finds more tidying every cycle, so no cycle would ever be clean. Public rustdoc is not tidying, because a
+caller reads it: a missing contract on a `pub` item stays Clear. A bug `rust-design-review` mentions in its closing aside is
 handed to stage 2 as a candidate, where the confirmation rule decides it.
 
 ### Stage 2: correctness

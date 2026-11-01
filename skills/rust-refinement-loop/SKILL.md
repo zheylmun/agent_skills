@@ -153,14 +153,20 @@ of that finding, not a second one to apply while the first waits.
 6. **Goal-breaking.** A finding that names a recorded decision and the stated
    goal or anti-goal it makes unreachable is **Questionable**. The loop never
    overrides a decision on its own judgement that the decision is wrong.
-7. **Nothing a caller sees.** A finding whose change no caller of the
-   public surface could see or would need to know: the structure, names or
-   comments of private code, how private state is stored, a test to add, a
-   doc's wording, links or examples where its contract is already stated.
-   It goes in the notes and is not a finding. Private code is stage 3's,
-   tests that show a bug are stage 2's, and a design review that applies
-   tidying finds more tidying every cycle, so no cycle is ever clean.
-8. **Otherwise, by cost.** **Questionable** when any of these holds:
+7. **Substantial new work** beyond the branch's own change is
+   **Questionable**, whether or not a caller would see it: a test suite for
+   a crate whose suite has never run, a module the branch only calls into
+   rewritten. How much more work the branch takes on is the user's call.
+8. **Tidying no caller sees.** A tidying-sized change no caller of the
+   public surface could see or would need to know: the naming or structure
+   of private code the branch touched, a test for a line the branch
+   changed, the wording of a private item's doc. It goes in the notes and
+   is not a finding. Private code is stage 3's, a test that shows a bug is
+   stage 2's, and a design review that applies tidying finds more tidying
+   every cycle, so no cycle is ever clean. Public rustdoc is not this step:
+   a caller reads it, so a missing or wrong contract on a `pub` item is
+   sorted by step 9 and is Clear.
+9. **Otherwise, by cost.** **Questionable** when any of these holds:
    - the remedy's ergonomic cost passes the cost screen under The Loop in
      [rust-spec-review](../rust-spec-review/SKILL.md), its public-signature
      rule included. A newtype for a value every caller of a `pub fn` passes
@@ -170,10 +176,7 @@ of that finding, not a second one to apply while the first waits.
      combinations of arguments costs nothing;
    - the remedy changes behaviour a user of the product could notice: a
      failure the end user used to never see, a default that changes what
-     they get;
-   - the remedy is substantial new work beyond the branch's own change: a
-     test suite for a crate whose suite has never run, a module the branch
-     only calls into rewritten.
+     they get.
 
    **Anything else is Clear.** The cost the review names is a claim; this
    step is the decision. Findings that are not about a caller obligation
@@ -190,7 +193,7 @@ the same commit (Keeping The Spec True). **Questionable findings are not
 applied.** Each goes on the trade-off list with the change, its cost, and
 what it would retire, for the next break point.
 
-The sort is total: step 8 bins whatever the first seven did not, so every
+The sort is total: step 9 bins whatever the first eight did not, so every
 finding ends in exactly one place. A finding that ends nowhere comes back
 next cycle and the loop cannot settle on it.
 
@@ -230,13 +233,13 @@ anything promised otherwise.
 **Unconfirmed findings are dropped and counted**, and the working tree is
 restored to `HEAD` (Green And Commits) so the test that confirmed nothing
 leaves with them. They are not argued, fixed "to be safe", or passed on as
-suspicions; the count reaches the break-point message. A stage 1 candidate
-the reviewer comes back with nothing on is unconfirmed too, and counted. The one exception is
-a soundness or security point (a data race no test can show, an unsound
-`unsafe` block): it is not reduced to a count but goes on the trade-off
-list marked unconfirmed and stated in full, as the soundness carve-out
-under Out Of Scope in [rust-design-review](../rust-design-review/SKILL.md)
-requires.
+suspicions; the count reaches the break-point message. A stage 1
+candidate the reviewer comes back with nothing on is unconfirmed too, and
+counted. The one exception is a soundness or security point (a data race
+no test can show, an unsound `unsafe` block): it is not reduced to a count
+but goes on the trade-off list marked unconfirmed and stated in full, as
+the soundness carve-out under Out Of Scope in
+[rust-design-review](../rust-design-review/SKILL.md) requires.
 
 **The orchestrator fixes each confirmed finding**, the fix kept to the bug,
 and commits its failing test in the same commit as the fix.
@@ -255,8 +258,8 @@ there touches the branch. In cycle 1 it covers the whole branch diff, so
 the branch's own code is simplified at least once. In later cycles it
 covers only what that cycle changed: the diff from the commit the cycle
 started at to `HEAD`. It reports each cleanup separately, as a sentence
-and its diff, and does not apply them to the branch. Remove its worktree afterwards with
-`git worktree remove --force`, as stage 2's is.
+and its diff, and does not apply them to the branch. Remove its worktree
+afterwards with `git worktree remove --force`, as stage 2's is.
 
 The orchestrator applies the cleanups one at a time, as in stage 1: each is
 green-checked and committed on its own. A cleanup that cannot be made green
@@ -396,7 +399,9 @@ stops and gives the user one message, with four parts in this order:
    with the change, its cost, and what it would retire. A confirmed bug
    whose fix could not be applied green says so and gives the failing test;
    an unconfirmed soundness point says it is unconfirmed and is stated in
-   full. These are the items to decide.
+   full. Items that touch the same code stand next to each other, each kept
+   whole, with one clause saying whether they are alternatives or compose.
+   These are the items to decide.
 3. **What was applied**, in a short list grouped by stage (design,
    correctness, simplify), one line each with its commit id. When the
    branch has no spec, each change that would have added an entry carries
@@ -421,7 +426,9 @@ When the user replies, take each item they decided in turn:
   **Adopted with a cost (round N).** whose `Cost:` is the cost the user
   accepted and whose `Retires:` is what it retires. If it cannot be made
   green in two attempts, discard it as Green And Commits says and tell the
-  user in one line; it is not recorded as adopted.
+  user in one line. It is not recorded as adopted; it stays on the list,
+  marked "could not be applied green", so stage 1's first step matches it
+  when it is raised again.
 - **Declined**: change no code, and add an entry
   **Declined (round N).** stating the finding, with `Reason:` the user's
   reason, committed on its own.
@@ -434,12 +441,14 @@ matches it.
 Then:
 
 - **If the loop paused**, the next batch of five starts, at a new round.
-- **If the loop had ended clean and the user approved a change**, the loop
-  runs again so that change is itself reviewed, and ends at the next clean
-  cycle. The cycle that applied nothing new does not make an approved
-  change reviewed.
+- **If the loop had ended clean and the user approved a change**, a new
+  batch starts, with its own round and its own break point after its fifth
+  cycle, so that change is itself reviewed; it ends at the next clean
+  cycle. The clean cycle that ended the last batch ran before the approved
+  change existed, so it reviewed none of it.
 - **If the loop had ended clean and nothing was approved**, it is done once
-  the answers are committed.
+  the answers are committed. Any undecided items are listed once more in
+  the reply, as for "stop here".
 - **"Stop here"** ends the loop after the answers given are recorded. The
   undecided items stay in the notes, listed once more in the reply.
 
@@ -459,7 +468,7 @@ keep the merge base, and check the tree is clean before the next cycle.
 | "I committed and then ran the tests." | Green is checked before the commit. A red commit is in the history for good, because the loop never rewrites it; a change that is not green is retried once and then discarded uncommitted. |
 | "I squashed the fixes to keep history tidy." | The loop never rewrites history. One commit per change, each naming its finding and stage, is what the history skill folds when the user chooses to run it. |
 | "The code departs from the spec, so I updated the spec to match the code." | A departure is Clear the other way: the code changes to match the spec, because the spec is the authority on what was decided. Changing the decision is a repair, and a repair is Questionable, the user's call. |
-| "The reviewer found a tidier way to hold the private state, so I applied it." | A stage 1 finding no caller could see is not a finding: private structure, comments, added tests and doc polish go in the notes. Stage 3 tidies private code once per cycle's changes; a design stage that applies tidying never runs dry. |
+| "The reviewer found a tidier way to hold the private state, so I applied it." | A tidying-sized stage 1 finding no caller could see is not a finding: private naming and structure, a test for a changed line, and a private item's doc wording go in the notes. Public rustdoc is caller-visible and stays Clear; substantial new work is Questionable first. Stage 3 tidies private code once per cycle's changes; a design stage that applies tidying never runs dry. |
 | "The simplify pass changed something, so the cycle isn't clean." | Simplify never counts. A cycle is clean when stage 1 applies nothing and adds nothing new and stage 2 confirms nothing; if tidying counted, the loop would never settle. |
 | "The reviewer raised the newtype again, so it's a new item." | A finding that names the same code and proposes the same change as a listed item is that item. A fresh reviewer raises every pending item until the user decides it; counting it as new means no cycle is ever clean. |
 | "Five cycles ran, I'll keep going." | The fifth cycle of a batch is a break point. Stop, give the four-part message, and wait: the trade-offs are the user's, and five more cycles only re-raise them. |
