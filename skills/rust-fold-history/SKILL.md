@@ -46,8 +46,8 @@ A fold the user did not ask for is a failure even if it works.
 
 ## The Fold
 
-In this order. Until the last move of step 6, the only change to the
-user's branch is step 3's plan commit.
+In this order. Until the last move of step 6, the only changes to the
+user's branch are step 3's plan commit and any plan revision from step 6.
 
 1. **Preconditions.** All of these hold, or stop before changing anything
    and say which failed:
@@ -56,7 +56,11 @@ user's branch is step 3's plan commit.
      change to get there; the user does that;
    - no rebase, merge, cherry-pick or revert is in progress;
    - HEAD is on a named branch, and that branch is not the base;
-   - the branch has commits beyond the base.
+   - the branch has commits beyond the base;
+   - no `fold/<branch>` branch or worktree is left from an earlier stopped
+     fold (`git worktree list`). If one is, the stop message gives the
+     cleanup: `git worktree remove --force <dir>`, then
+     `git branch -D fold/<branch>`.
 
    Find the base as [rust-refinement-loop](../rust-refinement-loop/SKILL.md)
    finds it (its What It Reads section). The **root** of the fold is
@@ -93,19 +97,21 @@ user's branch is step 3's plan commit.
 
    Change only the plan file. Commit it on the branch, as an ordinary
    commit, before the fold, so the tree comparison in step 6 covers it. The
-   HEAD after this commit is the one the fold must reproduce.
+   HEAD after this commit is the one the fold must reproduce. If the plan
+   already matches the refined design, make no plan commit; the original
+   HEAD is then the one to reproduce.
 
 4. **Write the fold map.** Assign every commit in `root..HEAD`, the plan
    commit included, to one target commit: the spec's docs commit, the
    plan's docs commit, or the task that, in the rewritten plan, introduces
-   the code it changes. A commit whose hunks belong to two tasks is split
-   by hunk (or by file) between them. Every commit lands in a target;
-   there is no "leftover" commit, and no target that is not a docs commit
-   or a plan task. Write the map to the handoff directory,
-   `$(git rev-parse --git-dir)/fold-history/fold-map.md`, run in the user's
-   checkout, before building anything: one line per original commit, short
-   sha and subject, then its target, and for a split, which hunks or paths
-   go where.
+   the code it changes. A commit whose hunks belong to two targets (a task,
+   the spec, or the plan) is split by hunk (or by file) between them.
+   Every commit lands in a target; there is no "leftover" commit, and no
+   target that is not a docs commit or a plan task. Write the map to the
+   handoff directory, `$(git rev-parse --git-dir)/fold-history/fold-map.md`,
+   run in the user's checkout, before building anything: one line per
+   original commit, short sha and subject, then its target, and for a
+   split, which hunks or paths go where.
 
 5. **Build the new history** on a temporary branch from the root, in a
    temporary worktree outside the repository
@@ -131,7 +137,7 @@ user's branch is step 3's plan commit.
      difference, a single byte or a whitespace change, stops the skill:
      the branch is not moved. Report the differing paths
      (`git diff --stat <branch> fold/<branch>`) and leave the temporary
-     branch for diagnosis.
+     branch and its worktree for diagnosis.
    - **Green per task commit.** At each task commit, in the worktree, run
      `cargo fmt --check`, `cargo build --all-targets` and `cargo test`, for
      the workspace (`--all` for fmt, `--workspace` for the others, and
@@ -142,20 +148,23 @@ user's branch is step 3's plan commit.
      the fold red for reasons no reviewer reads. Every task commit must
      pass, not only the last: an intermediate red commit breaks bisect.
 
-   A red commit gets two attempts, each moving a hunk to another task
-   commit: first **later**, into the task that introduces what the hunk
-   needs; then **earlier**, when what the hunk needs belongs to an earlier
-   task. Later comes first so a task commit never carries code its task
-   does not introduce. When a move leaves the plan wrong about which task
-   introduces something, revise the plan as a new ordinary commit on the
-   branch, delete the temporary branch and worktree, and restart from step
-   4: a new map, a new build, both checks again, against the new HEAD. The
-   plan and the commits stay matched.
+   A red commit gets two attempts, each moving a hunk between task
+   commits: first **later**, moving the red commit's hunk into the task
+   that introduces what the hunk needs; then **earlier**, moving into the
+   red commit a hunk from a later commit that it needs. Later comes first
+   so a task commit never carries code its task does not introduce. After
+   any move, run the green checks again on every task commit from the
+   earliest one the move changed, and the tree check again. When a move
+   leaves the plan wrong about which task introduces something, revise the
+   plan as a new ordinary commit on the branch, delete the temporary branch
+   and worktree, and restart from step 4: a new map, a new build, both
+   checks again, against the new HEAD. The plan and the commits stay
+   matched.
 
    If a commit is still red after two attempts, do not move the branch.
    Ask the user, naming the folded commit, the failing command and the
-   failing test or error, and leave the temporary branch and the map for
-   them.
+   failing test or error, and leave the temporary branch, its worktree and
+   the map for them.
 
    When both checks pass, and only then, move the branch with the old
    value checked:
@@ -164,7 +173,8 @@ user's branch is step 3's plan commit.
    git update-ref -m "rust-fold-history" refs/heads/<branch> <new-sha> <expected-old-sha>
    ```
 
-   where `<expected-old-sha>` is HEAD after the last plan commit. It fails
+   where `<expected-old-sha>` is HEAD after the last plan commit, or the
+   original HEAD when there is none (no plan change, or no plan). It fails
    if the branch moved meanwhile; then stop and say so. Never `git reset
    --hard`, `git branch -f` or a rebase of the branch itself. Since the
    trees are equal, the user's checkout stays clean. Then remove the
@@ -174,16 +184,19 @@ user's branch is step 3's plan commit.
 propose the logical steps from the commit messages and the diff, show the
 proposed fold map, and ask before step 5. Write no plan file into the
 repository: step 3 is skipped, and the agreed steps live in the handoff
-directory, beside the map. The only docs commit is the spec's, when the
-branch adds or changes one. With a plan, the skill runs to the end without
-asking, except for a commit still red after two attempts.
+directory, beside the map. A restart from step 6 revises those agreed
+steps there, not a plan file, and the expected old sha stays the original
+HEAD. The only docs commit is the spec's, when the branch adds or changes
+one. With a plan, the skill runs to the end without asking, except for a
+commit still red after two attempts.
 
 ## The Handoff And The Message
 
 **The handoff** lives in `$(git rev-parse --git-dir)/fold-history/`, run in
 the user's checkout: per repository, never committed, and it survives
 compaction and a new session. Beside `fold-map.md`, write `handoff.md`,
-which a fresh context resumes from:
+which a fresh context resumes from, only after the branch moves (the end
+of step 6):
 
 - the branch, its base, the root's sha, and the backup branch;
 - the folded commits, one line each, `<sha> <subject>`, mapped to the plan
@@ -211,17 +224,22 @@ which a fresh context resumes from:
    /compact The branch feat/x was folded to 6 commits matching the plan. Keep only what is needed to continue; read .git/fold-history/handoff.md and resume the refinement loop at batch 3.
    ```
 
-   On a fold the user asked for outside the loop, the line says what the
-   user was doing next, or "and continue".
+   The handoff path is the one `git rev-parse --git-dir` printed, with
+   `fold-history/handoff.md` after it: `.git/...` in a plain checkout, an
+   absolute path in a linked worktree. On a fold the user asked for outside
+   the loop, the line says what the user was doing next, or "and continue".
 
 No per-commit narrative, no map in the message (it is in the file), no
 restatement of the plan.
 
 When the skill stops instead (a precondition, a tree difference, a commit
 still red, a moved branch), the message says why in its first line, names
-what it did write (the backup, a plan commit, the temporary branch, the
-map), and says the branch was not moved. A precondition stop writes
-nothing: no backup, no commit, no handoff.
+what it did write (the backup; the plan commit, by its sha, on top of the
+original HEAD; the temporary branch and its worktree's path; the map),
+gives the cleanup for the temporary branch (`git worktree remove --force
+<dir>`, then `git branch -D fold/<branch>`), and says the branch was not
+folded. A precondition stop writes nothing: no backup, no commit, no
+handoff.
 
 **Optional hook.** A `SessionStart` hook with matcher `compact` runs after a
 compaction and adds its stdout to the new context, so it could print

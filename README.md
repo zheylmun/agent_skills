@@ -99,15 +99,16 @@ record the full run; `quality-gate-baseline.md`, `design-review-baseline.md`,
 and `embedded-baseline.md` record the prompt only, with the transcript kept
 in that task's report instead. `spec-review-baseline.md`,
 `spec-review-plan-mode.md`, `design-review-decisions.md`,
-`refinement-loop-baseline.md`, and `refinement-loop-break-point.md`,
+`refinement-loop-baseline.md`, `refinement-loop-break-point.md`,
 `fold-history-baseline.md`, `fold-history-dirty.md`, and
 `refinement-loop-fold-offer.md` are prompt-only too. The newer, prompt-only
-style is the intended convention going forward — it keeps a scenario file a stable regression
-fixture rather than a snapshot of one run — but the existing full-transcript
-files were left as they are rather than rewritten. To re-run one: dispatch a
-clean-room agent (no repo access, code carried inline in the prompt) with
-just the prompt for RED, or the target `SKILL.md`'s text followed by the
-prompt for GREEN, and compare the output against the skill's stated deltas.
+style is the intended convention going forward — it keeps a scenario file a
+stable regression fixture rather than a snapshot of one run — but the
+existing full-transcript files were left as they are rather than rewritten.
+To re-run one: dispatch a clean-room agent (no repo access, code carried
+inline in the prompt) with just the prompt for RED, or the target
+`SKILL.md`'s text followed by the prompt for GREEN, and compare the output
+against the skill's stated deltas.
 
 ## Spec
 

@@ -516,10 +516,13 @@ of this message. The loop never runs the skill unasked, since folding
 rewrites history and that is the user's call; the fold runs only on the
 user's yes. If the user says yes and also answers this break point's
 trade-offs, the loop applies and commits those answers first, then runs
-the fold. After it, the commit ids in the notes are
-stale: re-read the branch, keep the merge base, and check the tree is clean
-before the next cycle. On resuming after a compaction, read the handoff
-the skill wrote (`$(git rev-parse --git-dir)/fold-history/handoff.md`) for
+the fold. The fold's message ends that turn; the next batch starts when
+the user resumes, after `/compact` or not. After the fold, the commit ids
+in the notes are stale: re-read the branch, keep the merge base, and check
+the tree is clean before the next cycle. On resuming after a compaction,
+read the handoff the skill wrote
+(`$(git rev-parse --git-dir)/fold-history/handoff.md`), if its branch is
+the one being refined (otherwise ignore the file), for
 the batch and cycle count, the notes path, the undecided items, the answers
 given at this break point, already applied (so they are not applied again),
 and what the next batch starts with, and keep the green baseline already recorded rather
