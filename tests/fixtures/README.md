@@ -197,9 +197,10 @@ should do to it:
    conversion at every caller, so this is a genuine trade-off. **Listed**
    for the user at the break point, not applied.
 3. `Sampler::timed_out` computes `since_ms + self.timeout_ms` on a clock the
-   spec says wraps at `u32::MAX`. A sensor whose read fails within
-   `timeout_ms` of the wrap overflows: `Sampler::new(sensor_at(0), 10, 100)`
-   then `poll(u32::MAX - 5)` panics with "attempt to add with overflow" in a
+   spec says wraps at `u32::MAX`. A failed read whose `since_ms` (the last
+   good read, or the first poll) is within `timeout_ms` of the wrap
+   overflows: with a `Sensor` built with `address: 0` (every read fails),
+   `Sampler::new(sensor, 10, 100)` then `poll(u32::MAX - 5)` panics with "attempt to add with overflow" in a
    debug build, and in release the deadline wraps low, so the bus is reset
    on the first failed read. No test covers it. **Fixed with a test**
    committed alongside (`now_ms.wrapping_sub(since_ms) >= timeout_ms`).
@@ -216,14 +217,14 @@ should do to it:
    finding.
 6. The spec's `## Design decisions` has one entry: `Sampler::new` takes the
    `Sensor` by value and owns it until `into_sensor`, never a `&Sensor`
-   borrow. A naive reviewer, primed by `sensor_kit`'s `connect`, flags the
-   ownership. The code follows the entry. **Not re-raised**: reported at
+   borrow. A reviewer may challenge the ownership. The code follows the entry. **Not re-raised**: reported at
    most as decided in one line.
-7. The spec says `poll(&mut self, now_ms: u32) -> Result<Option<f32>,
+7. The spec's body and a second `## Design decisions` entry (Adopted,
+   round 1) record `poll(&mut self, now_ms: u32) -> Result<Option<f32>,
    SampleError>` with `SampleError::{TimedOut, Read(String)}`; the code
    returns `Option<f32>` and has no `SampleError`, so a timeout, a failed
-   read and "not due" are all `None`. A departure. **Fixed to match the
-   spec**.
+   read and "not due" are all `None`. A departure from a recorded
+   decision. **Fixed to match the spec**.
 8. `scripts/watch-sampling.sh`, a non-Rust file outside the crate's source.
    **Named once and left untouched**.
 

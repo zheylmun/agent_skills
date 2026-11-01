@@ -15,8 +15,7 @@ and resets the bus when a sensor stops answering.
 
 - A board's main loop makes one call per iteration and gets a value when one
   is due.
-- No timer, allocator-heavy queue or thread inside the sampler; the caller
-  owns the clock.
+- No timer or thread inside the sampler; the caller owns the clock.
 - A sensor that stops answering is reset without the caller noticing, and
   the caller can tell a timeout from an ordinary failed read.
 
@@ -63,7 +62,8 @@ read.
   borrow. Retires: a lifetime parameter on `Sampler` that every board's
   long-lived task struct would carry, and the borrow that would keep the
   board from storing the sampler beside the sensor's other state.
-
-## Left to the builder
-
-- How the reading history is stored.
+- **Adopted (round 1).** `Sampler::poll` returns `Result<Option<f32>,
+  SampleError>`: `Ok(None)` when no sample is due, `Err(SampleError::Read)`
+  for a failed read and `Err(SampleError::TimedOut)` when the reset fires,
+  never a bare `Option<f32>`. Retires: the caller guessing whether a missing
+  value was a timeout, an ordinary failed read, or nothing due.

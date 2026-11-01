@@ -107,9 +107,13 @@ impl Sampler {
     }
 
     fn mean_calibrated(&self) -> f32 {
-        let (sum, count) = self.history.iter().fold((0.0, 0.0), |(sum, count), &raw| {
-            (sum + calibrate(&self.sensor, f32::from(raw)), count + 1.0)
-        });
+        let sum: f32 = self
+            .history
+            .iter()
+            .map(|&raw| calibrate(&self.sensor, f32::from(raw)))
+            .sum();
+        #[allow(clippy::cast_precision_loss)] // at most four readings
+        let count = self.history.len() as f32;
         sum / count
     }
 }

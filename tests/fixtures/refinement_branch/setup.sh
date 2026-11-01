@@ -19,9 +19,10 @@ if [ $# -eq 2 ]; then
     with_spec=no
 fi
 
-here=$(cd "$(dirname "$0")" && pwd)
+here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 kit=$here/../sensor_kit
 change=$here/change
+created=no
 
 if [ -e "$target" ]; then
     if [ ! -d "$target" ]; then
@@ -33,14 +34,26 @@ if [ -e "$target" ]; then
         exit 1
     fi
 else
-    mkdir -p "$target"
+    mkdir -p -- "$target"
+    created=yes
 fi
-target=$(cd "$target" && pwd)
+target=$(CDPATH='' cd -- "$target" && pwd)
+
+# A build that fails partway leaves nothing behind in a directory it made.
+cleanup() {
+    status=$?
+    if [ "$status" -ne 0 ] && [ "$created" = yes ]; then
+        rm -rf -- "$target"
+    fi
+    exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
 
 g() {
     git -C "$target" -c user.name="Fixture Author" \
         -c user.email="fixture@example.invalid" \
-        -c commit.gpgsign=false "$@"
+        -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"
 }
 
 # main: a copy of sensor_kit, without its build output or lockfile.
