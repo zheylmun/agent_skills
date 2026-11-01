@@ -26,6 +26,9 @@ discipline, and documentation rather than low-level mechanics.
   correctness review, and simplify over a feature-complete branch in cycles
   before a PR, applies the clear changes, brings the genuine trade-offs to
   you every five cycles, and stops at the first clean cycle.
+- **rust-fold-history** — folds a refined branch into one commit per plan
+  task, rewrites the plan to the refined design, verifies the tree, and hands
+  off for `/compact`, never pushing.
 - **rust-embedded** — a thin overlay of `#![no_std]`/embedded-specific
   deltas, invoked alongside the other skills when an embedded target is
   detected.
@@ -82,6 +85,11 @@ the same never-improve rule as `sensor_kit`: they keep their seeded flaws.
 `sensor_kit`, a seeded change on it, and a short spec (`--no-spec` omits the
 spec).
 
+`tests/fixtures/fold_branch/` is a fixture for `rust-fold-history`:
+`setup.sh <dir> [--dirty] [--remote]` builds a scratch git branch with a
+three-task plan, three task commits, and eight refinement fix-up commits;
+`--dirty` leaves one uncommitted edit, and `--remote` adds an `origin` remote.
+
 `tests/scenarios/*.md` are RED/GREEN prompts: each one is a task handed to a
 fresh agent first with no skill loaded (RED, showing the failure a skill is
 meant to catch) and then with the relevant `SKILL.md` loaded ahead of the
@@ -91,9 +99,10 @@ record the full run; `quality-gate-baseline.md`, `design-review-baseline.md`,
 and `embedded-baseline.md` record the prompt only, with the transcript kept
 in that task's report instead. `spec-review-baseline.md`,
 `spec-review-plan-mode.md`, `design-review-decisions.md`,
-`refinement-loop-baseline.md`, and `refinement-loop-break-point.md` are
-prompt-only too. The newer, prompt-only style is the intended
-convention going forward — it keeps a scenario file a stable regression
+`refinement-loop-baseline.md`, and `refinement-loop-break-point.md`,
+`fold-history-baseline.md`, `fold-history-dirty.md`, and
+`refinement-loop-fold-offer.md` are prompt-only too. The newer, prompt-only
+style is the intended convention going forward — it keeps a scenario file a stable regression
 fixture rather than a snapshot of one run — but the existing full-transcript
 files were left as they are rather than rewritten. To re-run one: dispatch a
 clean-room agent (no repo access, code carried inline in the prompt) with

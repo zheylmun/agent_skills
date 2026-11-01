@@ -1,6 +1,6 @@
 {
   "name": "rust-craft",
-  "description": "Rust API design, documentation discipline, and design review skills, before and after the code exists",
+  "description": "Rust API design, documentation discipline, design review, and branch refinement skills, before and after the code exists",
   "version": "0.1.0",
   "author": {
     "name": "Zach Heylmun"
