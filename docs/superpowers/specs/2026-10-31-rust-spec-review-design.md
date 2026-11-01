@@ -250,6 +250,30 @@ the reviewer would have to invent first. Those go in the round's closing
 paragraph. The bar is what lets the loop converge: a fresh reviewer always
 finds something, and only structural findings are worth a round.
 
+**Landmines and refinements** (amended 2026-11-01, at the user's request,
+after real specs ran to the cap). Each finding is labelled by its remedy. A
+**landmine** changes a shape the spec names, stated as before and after (a
+type, a signature, a field's type, an enum's variants or exhaustiveness, an
+error's split,
+which value owns a piece of state, a trait added or removed), and retires a
+mistake a caller can make silently: a state the spec calls illegal, two
+confusable values, a failure collapsed into an absence, a success or
+another failure the caller handles differently, or a
+rule the caller keeps by hand. Everything else above the bar is a
+**refinement**: a change to what the spec says happens, to its rules or
+reasoning, or a shape change that removes a redundancy, narrows a
+visibility or simplifies without retiring such a mistake. The kind follows
+the remedy, not the pass, and the orchestrator decides it from the entry,
+not the reviewer's label; a Declined entry is never a landmine. Both kinds
+are sorted, binned and edited the same way, so a clear refinement is
+applied without asking and an ambiguous one reaches the user; only
+landmines count toward convergence (section 6). The user's reason: prose,
+reasoning and one more reshape can be litigated indefinitely, so this phase
+catches the structural landmines and leaves the smaller refinements to the
+PR-time review. A first version gated on every API change; on a real spec
+it still hit the cap with one API entry a round, several of them tidy
+reshapes.
+
 A round's output is the ranked findings as prose, a clause for any pass that
 found nothing, and a one-line closing paragraph for anything out of scope
 or below the structural bar, on `rust-design-review`'s budget. A round that
@@ -289,7 +313,12 @@ never beside the spec, never committed, never in the spec.
    finding against a shape an adopted entry introduced, whether a
    refinement, a different design, or a proposal to replace or retire it, is
    covered by that entry unless it is a repair (step 3) or would restore
-   what the entry retired (step 4). A finding whose remedy changes a shape
+   what the entry retired (step 4). A finding is about the shape its remedy
+   changes, not the shapes its evidence mentions. A first version keyed
+   covering on every shape a finding touched; on a real spec almost every
+   late finding also touched an author's shape, nothing was covered, and
+   the loop cascaded to the cap.
+   A finding whose remedy changes a shape
    stated only inside the author's own decisions section is covered here
    too, since the loop does not edit that section.
    A finding that shows the decision makes a stated goal or anti-goal
@@ -383,20 +412,20 @@ answer appends "Revised by the user." Example:
 >   needs the user.
 
 **Convergence.** The loop has converged after a round that produces no new
-entry. Repairs and covered findings do not count: both are movements inside
-decisions already taken. Pass-8 Declined entries do not count either: they
-record a proposal the loop rejected, not a change to the design. So a round
-whose only output is repairs, coverings and pass-8 declines has converged.
-A round that adds an entry is not the last, since nothing has read the spec
-it left. A repair in the converging round is the one edit no fresh round
-rereads; that trade is accepted, and `rust-design-review` at PR time covers
-it. A hard cap of five rounds per invocation, my call. A fresh reviewer
-has a find rate of its own, so zero new entries is not a reliable stop and
-the cap will be hit on honest runs; what the skill owes the user at the cap
-is an account of what happened, not a blanket verdict.
+landmine (section 5). Refinements, repairs, covered findings and Declined
+entries (a pass-8 deletion included) do not count: refinements are applied
+but cannot buy a round, repairs and coverings are movements inside
+decisions already taken, and a Declined entry changes nothing in the spec.
+A round that adds a landmine is not the last, since nothing has read the
+spec it left. The converging round's refinements and repairs are the edits
+no fresh round rereads; that trade is accepted, and `rust-design-review` at
+PR time covers them. A hard cap of five rounds per invocation, my call. A
+fresh reviewer has a find rate of its own, so the cap can still be hit on
+honest runs; what the skill owes the user at the cap is an account of what
+happened, not a blanket verdict.
 
 **At the cap**, the first line of the user message gives the per-round
-new-entry counts, pass-8 Declined entries excluded as for convergence, and
+new landmine counts, pass-8 Declined entries excluded as for convergence, and
 names one of two things. **Tapering:** the counts are non-increasing over
 the last three rounds and the last round added at most two; the line then
 names the last two rounds' entries, the ones the user should glance at.
@@ -419,8 +448,8 @@ rounds only.
 
 One message, after convergence or the cap. In order:
 
-1. One line: rounds run, findings adopted, items awaiting the user, and
-   whether the loop converged or stopped at the cap, and at the cap whether
+1. One line: rounds run, findings adopted, items awaiting the user, the
+   landmines and refinements added (two counts), and whether the loop converged or stopped at the cap, and at the cap whether
    it was tapering or oscillating as section 6 defines them, with the
    per-round counts and, when tapering, the last two rounds' entries by
    name. Then, ahead of the trade-offs,

@@ -27,6 +27,14 @@ that review. Code can drift from a spec, and docs, comments, and gate evidence
 exist only in code, so the PR-time review still runs; a spec that has been
 through this skill should leave it only correctness-neutral findings.
 
+Only landmines decide when the loop stops: shape changes that retire a
+mistake a caller could make silently. A spec is prose, and a fresh reviewer
+can always reword a rule, re-argue a reason, or reshape one more type, so
+everything else is a refinement, applied when it is clearly better but never
+buying the loop another round. When a round finds no new landmine, the loop
+is done, and the smaller refinements it did not reach are left to the PR-time
+review.
+
 ## What A Round Reads
 
 A round is one reviewer working the passes below once. It reads four inputs,
@@ -308,6 +316,29 @@ is pass 5's. A sentence that is evidence for a finding does not move it to
 pass 5: when a prose rule only corroborates a surface finding, the finding
 stays with the surface pass.
 
+**Landmines and refinements.** Label each finding **landmine** or
+**refinement**. A landmine needs both of these:
+
+- its remedy changes a shape the spec names, stated as the shape before and
+  after: a type, a signature, a field's type, the variants of an enum or
+  whether it is exhaustive, how an error is split, which value owns a piece
+  of state, a trait added or removed;
+- and what it retires is a mistake a caller can make without anything
+  telling them: a state the shape admits that the spec calls illegal, two
+  values a caller can pass for each other, a failure collapsed into an
+  absence, a success, or another failure the caller must handle
+  differently, or a rule the spec states that the caller must keep by hand (a call
+  order, a re-check, a lock held or not held).
+
+Everything else that clears the bar is a refinement: a remedy that changes
+what the spec says happens (a timeout, an order of operations, what a
+failure does next) or the rule or reasoning its prose gives, and a shape
+change that removes a redundancy, narrows a visibility, or simplifies
+without retiring such a mistake. The kind follows the remedy, not the pass:
+a pass-5 sentence that stands in for a missing type is a landmine, and a
+pass-2 finding fixed by rewording a transition rule is a refinement. A
+finding with both is two findings, as below.
+
 A repair (pass 6) has the same four parts, with the entry it repairs as its
 design fact.
 
@@ -327,7 +358,8 @@ A round's output, which goes to the orchestrator under The Loop and never
 straight to the user, is:
 
 - the ranked findings, as prose, each a paragraph a reader can follow
-  without the spec open, with its pass and its spec section named;
+  without the spec open, with its pass, its spec section and its kind
+  (landmine or refinement) named;
 - a clause for every pass that found nothing, and pass 6's clause naming the
   decisions it read;
 - one line for each remedy pass 8 deleted, naming the shape and the remedy;
@@ -390,7 +422,12 @@ beside the spec, never committed, never in the spec.
    repair (step 3) or would restore what the entry retired (step 4). A
    fresh reviewer always has something to say about a shape the previous
    round introduced, and if each such finding were new the loop would
-   cascade. A finding whose remedy changes a shape
+   cascade. A finding is about the shape its remedy changes, not the
+   shapes its evidence mentions: a remedy that changes a shape an adopted
+   entry introduced is covered by that entry, however many of the author's
+   shapes the finding cites, and one whose remedy changes only the
+   author's shapes goes on through the steps. A remedy that changes both
+   is two findings, as Findings splits them. A finding whose remedy changes a shape
    stated only inside the author's own decisions section is covered here
    too: that section is the author's, and the loop does not edit it. A
    finding that names a stated goal or anti-goal the decision makes
@@ -449,6 +486,19 @@ it: it is the newtype tension that principle 5 of
 which is the author's call. So such a finding is **Adopted with a cost**,
 never plain Adopted.
 
+**The kind.** The reviewer's landmine or refinement label is a claim; the
+entry decides. A new entry is a **landmine** when the edit you make for it
+changes a type, signature, field type, variant or exhaustiveness, error
+split, owner or trait the spec names, and its `Retires:` names one of the four silent mistakes
+Findings lists. Otherwise it is a **refinement**, whatever the reviewer
+called it. A Declined entry changes nothing in the spec, so it is never a
+landmine. Refinements go through the same steps and bins as landmines: one
+that is clearly better and costs no caller anything is Adopted and edited
+in, and one that needs the user is Adopted with a cost or Declined, as any
+entry would be. The kind changes only what the entry counts for under
+Convergence. Record each new entry's kind in the round notes, not in the
+spec; the entry format does not change.
+
 There is no fourth bin and no sixth step. A finding you cannot place in any
 step is **Declined** with the reason "could not sort", which puts it in
 front of the user. A finding that ends nowhere, in neither an entry, a
@@ -502,23 +552,27 @@ form:
 >   needs the user.
 
 **Convergence.** The loop has converged after a round that produces no new
-entry. Repairs and covered findings do not count: both are movements inside
-decisions already taken. Nor do pass-8 Declined entries: they record a
-proposal the loop rejected, not a change to the design. So a round whose
-only output is repairs, coverings and pass-8 declines has converged, and so
-has a round that finds nothing. A round that adds an entry is never the
-last, because nothing has yet read the spec it left, so a spec with findings
-takes at least two rounds. A repair in the converging round is the one edit
-no fresh round rereads; that trade is accepted, and the PR-time
-[rust-design-review](../rust-design-review/SKILL.md) covers it. The cap is
-five rounds per invocation. If round
-five still produces a new entry, stop; round five is not presented as
-converged. Keep a count of new entries per round, pass-8 Declined entries
-excluded as for convergence, since the cap report needs it.
+landmine. Only landmines count, because they are what this phase exists to
+catch; a fresh reviewer can always reword a rule, re-argue a reason or
+reshape one more type, so refinements are applied but never buy another
+round. Repairs and covered findings do not count either: both are movements
+inside decisions already taken. Declined entries do not count, a pass-8
+deletion included: they change nothing in the spec. So a round whose only
+output is refinements, repairs, coverings and Declined entries has
+converged, and so has a round that finds nothing. A round that adds a
+landmine is never the last, because nothing has yet read the spec it left,
+so a spec with landmines takes at least two rounds. The refinements and
+repairs of the converging round are the edits no fresh round rereads; that
+trade is accepted, and the PR-time
+[rust-design-review](../rust-design-review/SKILL.md) covers them. The cap is
+five rounds per invocation. If round five still produces a new landmine,
+stop; round five is not presented as converged. Keep two counts per round,
+new landmines and new refinements, Declined entries counted in neither,
+since the cap report and the first line need them.
 
 **At the cap**, the message's first line names what happened, with the
-per-round new-entry counts, and it is one of two things. **Tapering:** the
-new-entry counts are non-increasing over the last three rounds and the last
+per-round new landmine counts, and it is one of two things. **Tapering:**
+the landmine counts are non-increasing over the last three rounds and the last
 round added at most two; then the first line also names the last two
 rounds' entries, since those are the ones the user should glance at.
 **Oscillating:** a "repaired twice" Declined entry or a "reverses round N"
@@ -544,9 +598,10 @@ One message, after the loop converges or hits the cap, with four parts in
 this order, an optional fifth, and one carve-out:
 
 1. **One line:** rounds run (by number), findings adopted, items awaiting
-   the user, and whether the loop converged or stopped at the cap; at the
-   cap, "tapering" or "oscillating" as Convergence defines them, with the
-   per-round new-entry counts and, when tapering, the last two rounds'
+   the user, the landmines and refinements added (two counts), and whether
+   the loop converged or stopped at the cap; at the cap, "tapering" or
+   "oscillating" as Convergence defines them, with the per-round new
+   landmine counts and, when tapering, the last two rounds'
    entries by name; and, under the fallback, that rounds were not
    independent.
 
@@ -584,7 +639,8 @@ beyond the diff and part 4's product-visible clauses, no restatement of the
 spec. Parts 2
 and 3 carry only this invocation's entries. When a part is empty, say so in
 a clause ("nothing awaits a keep-or-flip"). When the first round
-produces no new entry, the first line says the spec was already converged.
+produces no new landmine, the first line says the spec was already
+converged, and still counts any refinements it applied.
 
 ## Applying The Answers
 
@@ -698,7 +754,11 @@ Receives), where such a problem is stated in full ahead of the trade-offs.
 | "I found a gap in the requirements, so I led with it." | Requirement completeness is out of scope. It goes in the one closing paragraph, after the last finding. |
 | "The fix was clearly right, so I absorbed the cost silently." | A cost the reviewer named and the loop absorbed without recording is the one outcome worse than not running the skill. It is Adopted with a cost: the entry names the cost, and the user sees it. |
 | "Round three disagrees with round one, so I'll go with round three." | A later round is not a better authority. A finding that would restore a shape an adopted entry retired is Declined with "reverses round N" and goes to the user; the loop never undoes its own adoption. A finding that merely wants the adopted shape different is covered by the entry, not declined. |
-| "Five rounds ran, so it converged." | Convergence is a round that produces no new entry (repairs, coverings and pass-8 declines do not count). Round five with a new entry is the cap, and the first line says tapering or oscillating, with the per-round counts, never converged. |
+| "Five rounds ran, so it converged." | Convergence is a round that produces no new landmine (refinements, repairs, coverings and Declined entries do not count). Round five with a new landmine is the cap, and the first line says tapering or oscillating, with the per-round counts, never converged. |
+| "This round only added refinements, but nothing has reread them, so one more round." | The round converged. Refinements are applied and never buy a round, because prose, reasoning and one more reshape can be argued indefinitely; the PR-time review reads what the last round edited. |
+| "This changes a type, so it's a landmine." | A landmine also retires a silent mistake: an illegal state, two confusable values, a collapsed failure, or a rule the caller keeps by hand. Dropping a redundant field or narrowing a visibility changes a type and retires none of those; it is a refinement, applied and not counted. |
+| "This behaviour fix closes a real hole, so I'll count it as a landmine to keep the loop going." | The kind is decided by the entry: does a named shape change, and does its `Retires:` name a silent mistake? If not, it is a refinement, however important. It is still applied, or sent to the user when it needs them. |
+| "It's only a refinement, so it doesn't need the user." | The kind decides what counts toward convergence, not where an entry goes. A refinement with a real caller cost, or one that needs product knowledge, is Adopted with a cost or Declined like any other. |
 | "The cap was hit, so the spec is oscillating." | Only if this invocation wrote a "repaired twice" or a "reverses round N" Declined entry. Fresh reviewers have a find rate of their own; counts that fall to one or two a round are tapering, and the user glances at the last two rounds' entries rather than suspecting the design. |
 | "The retirement still isn't true after the last repair, so I'll repair it again." | An entry is repaired once. A second repair finding is Declined "repaired twice; needs the user"; the user decides the shape, not a third reviewer. |
 | "I'll summarise each round for the user." | The user gets one message: the first line with the soundness carve-out, the keep-or-flip items, the declined items, the diff pointer, and at most one sentence of asides. Per-round narrative is the noise the loop exists to absorb; the diff and the decisions section are the history. |
