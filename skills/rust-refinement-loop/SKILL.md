@@ -436,7 +436,9 @@ stops and gives the user one message, with four parts in this order:
    triggered it, such as "14 fix-up commits against a 3-task plan; fold the
    history?". A fold is worth offering when, since the last fold or the
    branch's start, the fix-up commits number at least as many as the plan
-   has tasks, or 10 or more cycles have run, or the conversation is clearly
+   has tasks, or 10 or more cycles have run since that fold (count from
+   the fold; the handoff's cumulative cycle count does not restart at a
+   fold, so it is not this count), or the conversation is clearly
    long (the model's judgement, since context size cannot be measured). When
    none holds, the line says nothing about folding.
 2. **The trade-off list**, most consequential first by the ranking under
@@ -508,15 +510,19 @@ Then:
 
 At a break point the user may run [rust-fold-history](../rust-fold-history/SKILL.md)
 to fold the loop's commits, or ask the loop to run it, before the next
-batch. The loop applies and commits the user's answers first, so the fold
-includes them, then makes the offer in part 1. It never runs the skill
-unasked, since folding rewrites history and that is the user's call; the
-fold runs only on the user's yes. After it, the commit ids in the notes are
+batch. The previous break point's answers are already applied and
+committed before this message, so a fold includes them; the offer is part 1
+of this message. The loop never runs the skill unasked, since folding
+rewrites history and that is the user's call; the fold runs only on the
+user's yes. If the user says yes and also answers this break point's
+trade-offs, the loop applies and commits those answers first, then runs
+the fold. After it, the commit ids in the notes are
 stale: re-read the branch, keep the merge base, and check the tree is clean
 before the next cycle. On resuming after a compaction, read the handoff
 the skill wrote (`$(git rev-parse --git-dir)/fold-history/handoff.md`) for
-the batch and cycle count, the notes path, the undecided items and what the
-next batch starts with, and keep the green baseline already recorded rather
+the batch and cycle count, the notes path, the undecided items, the answers
+given at this break point, already applied (so they are not applied again),
+and what the next batch starts with, and keep the green baseline already recorded rather
 than recording a new one.
 
 ## Common Mistakes
