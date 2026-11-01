@@ -160,3 +160,72 @@ faithful everywhere else:
 3. No task implements `Record::update_if`, the item 4 entry's shape.
 
 Caught by: **rust-spec-review** plan mode, as three items and nothing else.
+
+## `refinement_branch`
+
+The input to **rust-refinement-loop**, which works over a branch rather than
+a crate. `tests/fixtures/refinement_branch/setup.sh <dir> [--no-spec]` builds
+a fresh git repo at `<dir>` (it refuses a non-empty one; no network). `main`
+is one commit holding a copy of `sensor_kit` without its `target/` or
+lockfile, plus a `.gitignore` for both. `feat/sensor-sampling`, checked out
+at the end, adds three commits: the feature (`src/sampling.rs`, a
+`pub mod sampling;` line prepended to a copy of `sensor_kit`'s `lib.rs`, and
+`scripts/watch-sampling.sh`), a happy-path test (`tests/sampling.rs`), and
+the spec at `docs/superpowers/specs/sampling-design.md`. `--no-spec` omits
+the spec commit. The files the branch commits live under `change/` and the
+spec is `spec.md`; `sensor_kit` itself is only read. The branch is green at
+the start (tests and `cargo fmt --check` pass, and the new code adds no
+`clippy::pedantic` or docs-build warning), apart from `sensor_kit`'s own
+seeded gate failures.
+
+The never-improve rule applies to everything here: do not fix a seed in
+`change/` or `spec.md`, do not make the spec agree with the code, and do not
+add the test that would catch seed 3. Each seed sits in code that otherwise
+reads as competent; that is the point.
+
+Seeded items, numbered as later tasks refer to them, each with what the loop
+should do to it:
+
+1. `Sampler::reading(&self, raw: bool, smoothed: bool) -> Option<f32>`:
+   two flags whose combination `raw && smoothed` is illegal (a
+   `debug_assert!`, and "`raw` wins" in the rustdoc and the spec). An enum
+   of latest, raw, or smoothed retires the illegal case at no caller cost.
+   **Applied** as a clear structural win, with the spec's text and
+   decisions updated to match.
+2. `Sampler::new(sensor: Sensor, period_ms: u32, timeout_ms: u32)`: two
+   confusable `u32`s at a public signature. Newtypes would cost a
+   conversion at every caller, so this is a genuine trade-off. **Listed**
+   for the user at the break point, not applied.
+3. `Sampler::timed_out` computes `since_ms + self.timeout_ms` on a clock the
+   spec says wraps at `u32::MAX`. A sensor whose read fails within
+   `timeout_ms` of the wrap overflows: `Sampler::new(sensor_at(0), 10, 100)`
+   then `poll(u32::MAX - 5)` panics with "attempt to add with overflow" in a
+   debug build, and in release the deadline wraps low, so the bus is reset
+   on the first failed read. No test covers it. **Fixed with a test**
+   committed alongside (`now_ms.wrapping_sub(since_ms) >= timeout_ms`).
+4. `Sampler::mean_calibrated` divides by a count that is `0.0` for an empty
+   history, which reads as a NaN bug. Its one caller, `reading`, returns
+   `None` through `self.history.last()?` before reaching it, so no input
+   gets a NaN out. (`is_due`'s `wrapping_sub` beside it is likewise correct
+   on the wrapping clock.) **Dropped as unconfirmed**: no failing test or
+   trace can be produced, and the code is not changed.
+5. `Sampler::push` trims the history with
+   `self.history = self.history[1..].to_vec()`, a needless reallocation
+   where `remove(0)` (or a ring) does. No lint fires on it. **Simplified**
+   by the simplify stage only; neither review stage should raise it as a
+   finding.
+6. The spec's `## Design decisions` has one entry: `Sampler::new` takes the
+   `Sensor` by value and owns it until `into_sensor`, never a `&Sensor`
+   borrow. A naive reviewer, primed by `sensor_kit`'s `connect`, flags the
+   ownership. The code follows the entry. **Not re-raised**: reported at
+   most as decided in one line.
+7. The spec says `poll(&mut self, now_ms: u32) -> Result<Option<f32>,
+   SampleError>` with `SampleError::{TimedOut, Read(String)}`; the code
+   returns `Option<f32>` and has no `SampleError`, so a timeout, a failed
+   read and "not due" are all `None`. A departure. **Fixed to match the
+   spec**.
+8. `scripts/watch-sampling.sh`, a non-Rust file outside the crate's source.
+   **Named once and left untouched**.
+
+With `--no-spec`, seeds 6 and 7 have no spec to measure against: the loop
+should run anyway and list what a spec would have recorded.
