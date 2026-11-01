@@ -200,10 +200,11 @@ should do to it:
    spec says wraps at `u32::MAX`. A failed read whose `since_ms` (the last
    good read, or the first poll) is within `timeout_ms` of the wrap
    overflows: with a `Sensor` built with `address: 0` (every read fails),
-   `Sampler::new(sensor, 10, 100)` then `poll(u32::MAX - 5)` panics with "attempt to add with overflow" in a
-   debug build, and in release the deadline wraps low, so the bus is reset
-   on the first failed read. No test covers it. **Fixed with a test**
-   committed alongside (`now_ms.wrapping_sub(since_ms) >= timeout_ms`).
+   `Sampler::new(sensor, 10, 100)` then `poll(u32::MAX - 5)` panics with
+   "attempt to add with overflow" in a debug build, and in release the
+   deadline wraps low, so the bus is reset on the first failed read. No
+   test covers it. **Fixed with a test** committed alongside
+   (`now_ms.wrapping_sub(since_ms) >= timeout_ms`).
 4. `Sampler::mean_calibrated` divides by a count that is `0.0` for an empty
    history, which reads as a NaN bug. Its one caller, `reading`, returns
    `None` through `self.history.last()?` before reaching it, so no input

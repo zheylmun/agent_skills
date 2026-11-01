@@ -42,8 +42,10 @@ Non-goals:
 
 - Opening the PR, pushing, or rewriting history. History simplification is a
   separate skill, run at a break point when the user chooses.
-- Reviewing non-Rust code on the branch. Frontend or script changes on a mixed
-  branch are left alone and named once in the summary.
+- Reviewing non-Rust code on the branch. Frontend, script, workflow or doc
+  changes outside the crate on a mixed branch are left alone and named once
+  in the summary. Cargo manifests, `rustfmt.toml`, `clippy.toml` and
+  toolchain files are the crate's, not non-Rust.
 - Performance or `unsafe` soundness review, beyond what the existing reviews
   already say about them.
 
@@ -59,9 +61,10 @@ Anti-goals (a failure even if it works):
 
 ## 3. Where it runs and what it reads
 
-Invoked when a Rust branch is feature-complete and the user is preparing a
-PR, or on a direct request to refine, polish, or run the review loop on a
-branch. The trigger description says so.
+Invoked on a direct request to refine, polish, or run the review loop on a
+branch, or when a feature-complete Rust branch is being readied for review
+before its PR. A plain "open the PR" is a branch-finishing skill's trigger,
+not this one's. The trigger description says so.
 
 Inputs:
 
@@ -79,6 +82,11 @@ Inputs:
 If the branch has no spec, the loop still runs. Decisions made at break
 points then live only in the break-point summary, and the summary says so.
 My call: the loop does not create a spec.
+
+The loop never starts on an unclean tree, untracked files included, because
+discarding a change that cannot be made green restores the tree to `HEAD`.
+It tells the user to commit, stash, or remove what is there and re-checks
+before cycle 1; "go ahead" does not start it.
 
 ## 4. One cycle
 
@@ -98,9 +106,10 @@ that skill already requires. Sort each finding:
   old one for ergonomics. A cost that recurs at every caller of a public
   signature always counts. Clear findings are applied.
 - **Questionable.** The remedy has a real cost, or changes behaviour a user of
-  the product could notice, or contradicts a stated decision on the grounds
-  that it breaks a goal. Not applied. Added to the trade-off list for the next
-  break point.
+  the product could notice, or breaks the signature or behaviour of a `pub`
+  item that existed before the merge base (surface the branch alters rather
+  than adds), or contradicts a stated decision on the grounds that it breaks
+  a goal. Not applied. Added to the trade-off list for the next break point.
 - **Decided.** A finding `rust-design-review` reports in one line as decided
   in the spec. Nothing to do.
 
@@ -108,7 +117,9 @@ Two of `rust-design-review`'s full-finding cases need a fixed sort, because
 the spec is the authority on what was decided:
 
 - **A departure** (the code is not the shape the spec decided) is Clear: the
-  code is changed to match the spec.
+  code is changed to match the spec. Except that a departure whose remedy
+  would restore a shape a later revision retired is Decided, not Clear: the
+  loop never reverts what it recorded.
 - **A repair** (the decided shape does not do what its entry says) is
   Questionable: changing a decision is the user's call.
 
@@ -136,7 +147,8 @@ whose brief is to break the code, not to approve it. A finding is
 **confirmed** only with evidence: a failing test the reviewer wrote, or a
 concrete trace from inputs to the wrong output that the orchestrator checks
 against the code. Unconfirmed findings are dropped and counted. Confirmed
-findings are fixed, each with the failing test committed alongside the fix.
+findings are fixed one at a time, each confirmed, fixed, checked green and
+committed with its failing test before the next is touched.
 
 My call: the built-in `code-review` skill at `high` effort is an acceptable
 engine for this stage if it is available, with its findings then put through
@@ -149,17 +161,23 @@ plain words instead, and the summary says which engine ran.
 
 Run the built-in `simplify` pass. In cycle 1 it covers the whole branch diff,
 so the branch's own code is simplified at least once. In later cycles it
-covers only what that cycle changed. It applies its own cleanups. Its output never counts against a clean
-cycle (section 5), so tidying cannot keep the loop alive.
+covers only what that cycle changed. The stage 3 subagent reports each
+cleanup, and the orchestrator applies and commits each one on its own. Its
+output never counts against a clean cycle (section 5), so tidying cannot
+keep the loop alive.
 
 ### After each stage
 
 **Green** means: the crate's tests pass, `cargo fmt --check` passes, and
-clippy and the docs build report nothing new compared with the branch as it
-stood before cycle 1. My call: `rust-quality-gate` reports observations, not a
-verdict, and many crates fail its doc lint or carry clippy clusters before the
-branch began, so the blocking test is "no new failures", recorded once at the
-start. The gate's observations still feed stage 1 as evidence every cycle.
+clippy, the docs build and the feature powerset (`cargo hack check
+--feature-powerset`, as `rust-quality-gate` runs it) report nothing new
+compared with the branch as it stood before cycle 1. When the baseline could
+not run the powerset, that part of green is unevidenced, in the gate's word,
+and the break-point message says so in its first line. My call:
+`rust-quality-gate` reports observations, not a verdict, and many crates fail
+its doc lint or carry clippy clusters before the branch began, so the
+blocking test is "no new failures", recorded once at the start. The gate's
+observations still feed stage 1 as evidence every cycle.
 
 Every applied change is checked green before it is committed. A change that
 cannot be made green in two attempts is discarded (it was never committed, so
@@ -168,9 +186,10 @@ discarding it rewrites nothing), and its finding goes on the trade-off list as
 fix could not be made green is therefore never silently dropped: it reaches
 the user at the next break point.
 
-Each applied change is its own commit, with a message that names the finding
-it fixes and which stage produced it. That is what the history skill later
-folds.
+Each applied change is its own commit, staging only the paths the change
+touched (never `git add -A` or `commit -a`), with a message that names the
+finding it fixes and which stage produced it. That is what the history skill
+later folds.
 
 ## 5. Stopping
 
@@ -192,8 +211,9 @@ loop stops and gives the user one message:
 2. The trade-off list, most consequential first, each with the change, its
    cost, and what it would retire. These are the items to decide.
 3. What was applied, in a short list grouped by stage, with commit ids.
-4. What was dropped: the count of unconfirmed correctness findings, and any
-   non-Rust code left untouched.
+4. What was dropped: the count of unconfirmed correctness findings, the
+   count of tidying items noted and not applied, so the user can ask for
+   them, and any non-Rust code left untouched.
 
 Nothing else. The rounds' detail stays in the orchestrator's notes outside
 the repo.
@@ -216,9 +236,17 @@ applied change would make the code depart from the spec, and PR-time
 - When a Clear change alters a shape the spec or plan names, the orchestrator
   updates that text in the same commit and adds an **Adopted** entry to the
   spec's `## Design decisions` section.
-- A trade-off the user approves is recorded as **Adopted with a cost**, with
-  the cost they accepted. One the user declines is recorded as **Declined**,
-  with their reason.
+- When any applied change alters a shape an earlier entry's sentence names,
+  that entry is revised in place with `Revised in round N.`, as
+  `rust-spec-review`'s repairs are, so no entry describes a shape the code
+  no longer has.
+- A trade-off the user approves that names no entry is recorded as
+  **Adopted with a cost**, with the cost they accepted. An approved repair or
+  goal-breaking change revises the entry it names in place, keeping its
+  round, recording the cost, and appending `Revised by the user.`, as
+  `rust-spec-review`'s Applying The Answers does; the old entry is never left
+  for the next cycle to read as a departure and revert. One the user declines
+  is recorded as **Declined**, with their reason.
 - Entries use `rust-spec-review`'s format, and the round number continues
   from the highest round already in the section: one new round per break
   point, so `rust-spec-review`'s resume numbering stays intact.

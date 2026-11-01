@@ -1,6 +1,6 @@
 ---
 name: rust-refinement-loop
-description: Use when a Rust branch is feature-complete and is being prepared for a pull request, or when asked to refine, polish, or run the review loop on a Rust branch
+description: Use when asked to refine, polish, or run the review loop on a Rust branch, or when a feature-complete Rust branch is being readied for review before its pull request is opened; not a trigger for opening, merging, or finishing the PR itself
 ---
 
 ## Overview
@@ -56,9 +56,11 @@ cannot see, and a wrong base turns every review into a review of someone
 else's work. Record the merge base once; every stage's diff is
 `git diff <merge-base>...HEAD`, which includes the loop's own commits.
 
-Non-Rust files in the diff (a frontend, a script, a workflow file) are not
-reviewed, simplified or changed. Note them once, for the break-point
-message.
+Non-Rust files in the diff (a frontend, a script, a workflow file, a doc
+outside the crate) are not reviewed, simplified or changed. Note them once,
+for the break-point message. Cargo manifests, `rustfmt.toml`, `clippy.toml`
+and toolchain files are not non-Rust files: they belong to the crate, and the
+reviews read them.
 
 **The branch's spec and plan**, under `docs/superpowers/specs` and
 `docs/superpowers/plans`: the ones the user names, or else the ones the
@@ -88,9 +90,12 @@ so. The loop does not create a spec.
 
 **Before cycle 1**, the working tree must be clean, untracked files
 included (`git status --porcelain` is empty), because discarding a
-change that cannot be made green (Green And Commits) must not discard the
-user's work. If it is not clean, ask. Then record the baseline that green is
-measured against.
+change that cannot be made green (Green And Commits) restores the tree to
+`HEAD` and must not discard the user's work. If it is not clean, the loop
+does not start: name what is there and tell the user to commit, stash, or
+remove it, then re-check before cycle 1. "Go ahead" is not an answer, since
+the first discard would delete those files. Then record the baseline that
+green is measured against.
 
 ## One Cycle
 
@@ -146,7 +151,11 @@ of that finding, not a second one to apply while the first waits.
    spec, with the entry quoted. Nothing to do.
 4. **A departure** (the code is not the shape a spec entry decided) is
    **Clear**: the code is changed to match the spec. The spec is the
-   authority on what was decided, so the spec's text does not move.
+   authority on what was decided, so the spec's text does not move. One
+   exception: a departure whose remedy would restore a shape a later
+   revision retired (an entry carrying `Revised in round N.` or `Revised by
+   the user.`, or a later entry) is **Decided**, not Clear. The revised
+   entry is the decision, and the loop never reverts what it recorded.
 5. **A repair** (the decided shape does not do what its entry says, such as
    not retiring what its `Retires:` names) is **Questionable**: changing a
    decision is the user's call.
@@ -176,7 +185,11 @@ of that finding, not a second one to apply while the first waits.
      combinations of arguments costs nothing;
    - the remedy changes behaviour a user of the product could notice: a
      failure the end user used to never see, a default that changes what
-     they get.
+     they get;
+   - the remedy breaks the signature or behaviour of a `pub` item that
+     existed before the merge base, surface the branch alters rather than
+     adds. Its callers are not on this branch, and whether to break them is
+     the user's call, whatever cost the review names or omits.
 
    **Anything else is Clear.** The cost the review names is a claim; this
    step is the decision. Findings that are not about a caller obligation
@@ -205,7 +218,9 @@ answer, panic, hang, lose or duplicate data, or break its own rustdoc
 contract or the spec. It gets a disposable worktree of `HEAD` in the scratch
 space (`git worktree add --detach`), so the tests it writes never touch the
 branch, and stage 1's candidates as places to start, each stated as code to
-look at, never as a verdict. It returns, for each finding, either a test
+look at, never as a verdict. Its brief states the git rule in terms: it
+touches no branch ref, stashes nothing, pushes nothing, and may commit only
+on its worktree's detached `HEAD`. It returns, for each finding, either a test
 that fails in that worktree, with its file path, code and failure output, or
 a concrete trace: the inputs, each step through the code by file and
 function, and the wrong output. Remove the worktree afterwards with
@@ -242,7 +257,10 @@ the soundness carve-out under Out Of Scope in
 [rust-design-review](../rust-design-review/SKILL.md) requires.
 
 **The orchestrator fixes each confirmed finding**, the fix kept to the bug,
-and commits its failing test in the same commit as the fix.
+and commits its failing test in the same commit as the fix. Findings are
+taken one at a time: confirm, fix, check green and commit one before
+touching the next, so a test that confirms nothing is never swept into
+another finding's commit.
 
 The built-in `code-review` at `high` effort is an acceptable engine for this
 stage when it is available, run against the merge base without `--fix` or
@@ -254,12 +272,14 @@ user's to request.
 
 A fresh subagent runs the built-in `simplify` pass, over Rust files only, in
 a disposable worktree of `HEAD` as stage 2 does, so nothing it applies
-there touches the branch. In cycle 1 it covers the whole branch diff, so
-the branch's own code is simplified at least once. In later cycles it
-covers only what that cycle changed: the diff from the commit the cycle
-started at to `HEAD`. It reports each cleanup separately, as a sentence
-and its diff, and does not apply them to the branch. Remove its worktree
-afterwards with `git worktree remove --force`, as stage 2's is.
+there touches the branch, and its brief carries stage 2's git rule: no
+branch ref, no stash, no push, commits only on the worktree's detached
+`HEAD`. In cycle 1 it covers the whole branch diff, so the branch's own
+code is simplified at least once. In later cycles it covers only what that
+cycle changed: the diff from the commit the cycle started at to `HEAD`. It
+reports each cleanup separately, as a sentence and its diff, and does not
+apply them to the branch. Remove its worktree afterwards with
+`git worktree remove --force`, as stage 2's is.
 
 The orchestrator applies the cleanups one at a time, as in stage 1: each is
 green-checked and committed on its own. A cleanup that cannot be made green
@@ -274,12 +294,17 @@ and record which engine ran, for the summary.
 ### Green And Commits
 
 **Green** means: the crate's tests pass, `cargo fmt --check` passes, and
-clippy and the docs build report nothing new compared with the branch as it
-stood before cycle 1. Run them as
-[rust-quality-gate](../rust-quality-gate/SKILL.md) does (its clippy and
-rustdoc commands, `--workspace` and `--target` as it says), and before
-cycle 1 record what they report as the baseline. Compare by lint and item,
-not by line number, since every applied change moves lines.
+clippy, the docs build and the feature powerset report nothing new compared
+with the branch as it stood before cycle 1. Run them as
+[rust-quality-gate](../rust-quality-gate/SKILL.md) does (its clippy,
+`cargo hack check --feature-powerset` and rustdoc commands, bounded,
+`--workspace` and `--target` as it says), and before cycle 1 record what
+they report as the baseline. Compare by lint and item, not by line number,
+since every applied change moves lines. When the baseline could not run the
+powerset (`cargo-hack` absent, or the gate's not-applicable state), that
+part of green is unevidenced, in the gate's word: the loop installs nothing
+and does not call it clean, and the break-point message says so in its
+first line.
 
 The baseline exists because the gate reports observations, not a verdict,
 and many crates fail its doc lint or carry clippy clusters before the branch
@@ -291,14 +316,16 @@ change could be checked green against it.
 **Every applied change is checked green before it is committed.** Clippy
 and rustdoc exit zero on warnings, so their exit status says nothing about
 "nothing new": compare their output with the baseline, then commit, never
-in one chained command. A change
+in one chained command. Stage only the paths the change touched
+(`git add <path>`), never `git add -A` or `commit -a`. A change
 that is not green gets a second attempt. A change that cannot be made green
 in two attempts is discarded: restore the working tree to `HEAD`, untracked
 files included, from the repository root, so a crate in a subdirectory of
 a workspace leaves nothing behind (`git restore --staged --worktree :/`,
 then `git clean -fd :/`).
 That loses only the change, since everything before it was committed and the
-tree was clean at the start, so every untracked file is the loop's own. Its
+loop never starts on an unclean tree (What It Reads), so every untracked
+file is the loop's own. Its
 finding goes on the trade-off list as "could not be applied green" (a
 simplify cleanup is only counted, as stage 3 says), and the loop carries
 on. A confirmed bug whose fix could not
@@ -337,6 +364,15 @@ a departure.
   the spec changes no spec text and adds no entry; the entry it departed from
   already says it. A Clear change that alters no named shape (a rustdoc
   contract, a `#[must_use]`) touches neither document.
+- **When any applied change alters a shape an earlier entry's sentence
+  names** (a Clear change, a bug fix, a cleanup, an approved change), that
+  entry is revised in place in the same commit, as a repair under The Loop
+  in [rust-spec-review](../rust-spec-review/SKILL.md) is: its round kept,
+  its sentence and `Retires:` brought true, and `Revised in round N.`
+  appended, N the current round (for an approved change, `Revised by the
+  user.`, as Applying The Answers says). No entry may describe a shape the
+  code no longer has: the next cycle's reviewer would read it as a
+  departure, which sorts Clear and undoes the change.
 - **Entries use the format of the decisions section** in
   [rust-spec-review](../rust-spec-review/SKILL.md), placement of a missing
   heading included. Round numbers continue from the highest round already in
@@ -392,8 +428,10 @@ stops and gives the user one message, with four parts in this order:
    applies: that the branch has no spec, so this message is the only record
    of its decisions; which stage ran on a plain brief because its engine
    was missing (When an engine is missing); that stages were not
-   independent (Without a subagent tool); and, after a second batch in a
-   row without a clean cycle, that and the recommendation to stop.
+   independent (Without a subagent tool); that the feature powerset could
+   not run, so that part of green is unevidenced (Green And Commits); and,
+   after a second batch in a row without a clean cycle, that and the
+   recommendation to stop.
 2. **The trade-off list**, most consequential first by the ranking under
    Output in [rust-design-review](../rust-design-review/SKILL.md), each
    with the change, its cost, and what it would retire. A confirmed bug
@@ -408,8 +446,9 @@ stops and gives the user one message, with four parts in this order:
    that entry beneath it, in the decisions-section format, as do the
    answers to earlier break points, so the user can carry them into a spec.
 4. **What was dropped:** the count of unconfirmed correctness findings, the
-   count of cleanups discarded as not green, and the non-Rust files in the
-   diff, by path, left untouched.
+   count of cleanups discarded as not green, the count of tidying items the
+   sort put in the notes and the loop did not apply (so the user can ask
+   for them), and the non-Rust files in the diff, by path, left untouched.
 
 Nothing else: no per-cycle narrative, no findings the sort marked decided,
 no restatement of the spec, no question per item. The rounds' detail stays
@@ -422,9 +461,17 @@ When the user replies, take each item they decided in turn:
 
 - **Approved**: apply the change as a Clear change is applied, checked
   green and committed on its own, with the spec and plan text it alters in
-  the same commit (Keeping The Spec True), and an entry
-  **Adopted with a cost (round N).** whose `Cost:` is the cost the user
-  accepted and whose `Retires:` is what it retires. If it cannot be made
+  the same commit (Keeping The Spec True). A trade-off that names no entry
+  gets a new entry **Adopted with a cost (round N).** whose `Cost:` is the
+  cost the user accepted and whose `Retires:` is what it retires. A repair
+  or goal-breaking change names an entry: revise that entry in place, as
+  Applying The Answers in [rust-spec-review](../rust-spec-review/SKILL.md)
+  does, keeping its round, its sentence now the shape the user chose, with
+  `Cost:` the cost the user accepted, `Retires:` what it retires, and
+  `Revised by the user.` appended. No new entry, and the old sentence does
+  not stay: an entry still describing the old shape reads to the next
+  cycle's reviewer as a departure, which would sort Clear and revert the
+  user's change. If it cannot be made
   green in two attempts, discard it as Green And Commits says and tell the
   user in one line. It is not recorded as adopted; it stays on the list,
   marked "could not be applied green", so stage 1's first step matches it
@@ -464,14 +511,15 @@ keep the merge base, and check the tree is clean before the next cycle.
 |---|---|
 | "The reviewer said it's a bug, so I fixed it." | A finding is confirmed only by a failing test the orchestrator reran, or a trace it checked against the code step by step. An unconfirmed finding is dropped and counted, never fixed "to be safe": a fix for a bug nobody confirmed is a change nobody can justify. |
 | "The newtype is obviously right, I applied it." | A newtype for a value every caller of a public signature passes costs a conversion at every one of those callers, and the cost screen in [rust-spec-review](../rust-spec-review/SKILL.md) counts that however the reviewer described it. It is Questionable and goes on the trade-off list; principle 5 of [rust-principles](../rust-principles/SKILL.md) leaves that call to the user. |
-| "The gate was red before I started, so I can't continue." | Green is "nothing new" for clippy and the docs build, against the baseline recorded before cycle 1. Pre-existing clusters and a crate with no doc contract do not block; only what the loop's own change adds does. Failing tests or `fmt` before cycle 1 are the one case to stop and ask. |
+| "The gate was red before I started, so I can't continue." | Green is "nothing new" for clippy, the docs build and the feature powerset, against the baseline recorded before cycle 1. Pre-existing clusters and a crate with no doc contract do not block; only what the loop's own change adds does. Failing tests or `fmt` before cycle 1 are the one case to stop and ask. |
 | "I committed and then ran the tests." | Green is checked before the commit. A red commit is in the history for good, because the loop never rewrites it; a change that is not green is retried once and then discarded uncommitted. |
 | "I squashed the fixes to keep history tidy." | The loop never rewrites history. One commit per change, each naming its finding and stage, is what the history skill folds when the user chooses to run it. |
 | "The code departs from the spec, so I updated the spec to match the code." | A departure is Clear the other way: the code changes to match the spec, because the spec is the authority on what was decided. Changing the decision is a repair, and a repair is Questionable, the user's call. |
+| "The spec entry still says the old shape, so the code departs; I changed the code back." | The change that altered that shape should have revised the entry in place (Keeping The Spec True; Applying The Answers). Revise it now, with `Revised by the user.` for an approved change or `Revised in round N.` for the loop's own, and never revert an approved change: a departure whose remedy restores a shape a later revision retired is Decided, not Clear. |
 | "The reviewer found a tidier way to hold the private state, so I applied it." | A tidying-sized stage 1 finding no caller could see is not a finding: private naming and structure, a test for a changed line, and a private item's doc wording go in the notes. Public rustdoc is caller-visible and stays Clear; substantial new work is Questionable first. Stage 3 tidies private code once per cycle's changes; a design stage that applies tidying never runs dry. |
 | "The simplify pass changed something, so the cycle isn't clean." | Simplify never counts. A cycle is clean when stage 1 applies nothing and adds nothing new and stage 2 confirms nothing; if tidying counted, the loop would never settle. |
 | "The reviewer raised the newtype again, so it's a new item." | A finding that names the same code and proposes the same change as a listed item is that item. A fresh reviewer raises every pending item until the user decides it; counting it as new means no cycle is ever clean. |
 | "Five cycles ran, I'll keep going." | The fifth cycle of a batch is a break point. Stop, give the four-part message, and wait: the trade-offs are the user's, and five more cycles only re-raise them. |
-| "The user approved it, so the loop is done." | An approved change is new code no stage has reviewed. Apply it, record it as Adopted with a cost, and run the loop again until the next clean cycle. |
+| "The user approved it, so the loop is done." | An approved change is new code no stage has reviewed. Apply it, record it (a new Adopted with a cost entry, or the named entry revised in place), and run the loop again until the next clean cycle. |
 | "I'll put the pending trade-offs in the spec so the next reviewer sees them." | Pending items stay in the orchestrator's notes. In the spec, the next reviewer reads them as decisions, and the user finds them already taken. Only the user's answer writes an entry. |
 | "I'll summarise each cycle for the user." | The break-point message has four parts and nothing else. Per-cycle detail stays in the notes, outside the repo, and is shown if the user asks. |

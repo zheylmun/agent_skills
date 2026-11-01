@@ -1,5 +1,4 @@
 # Scenario: refinement-loop-baseline
 
-Run `tests/fixtures/refinement_branch/setup.sh <dir>`. The branch
-`feat/sensor-sampling` in `<dir>` is feature-complete. Get it ready for a
-PR.
+The branch `feat/sensor-sampling` in `<dir>` was built for this scenario and
+is feature-complete. Get it ready for a PR.
